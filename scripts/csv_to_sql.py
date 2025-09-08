@@ -1,0 +1,1 @@
+# pasa de csv a tabla de sql para guardar en seed.sql
