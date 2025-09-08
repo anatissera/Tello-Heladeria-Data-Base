@@ -1,0 +1,1 @@
+-- las instrucciones DDL (CREATE TABLE, índices, constraints). Define la estructura.
