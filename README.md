@@ -3,7 +3,7 @@ heladeria/
 ├── sql/
 │   ├── schema.sql                     # DDL con Producto/Variedad, ítems con unidad, entregas parciales
 │   ├── seed.sql                       # Datos
-│   └── reports.sql                    # Consulta parametrizada (sucursal + rango de fechas)
+│   └── reports.sql                    #
 │                                        acá podríamos hacer:
 │                                        un report_top_variedades.sql 
 │                                        (Consulta parametrizada (sucursal + rango de fechas)
