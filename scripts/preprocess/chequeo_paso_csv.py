@@ -3,7 +3,7 @@ import unicodedata
 import re
 
 MAESTRO = "data/catalog/productos.csv"                 # columnas: ID,nombre,familia,categoria
-OUTCSV  = "data/processed/pedidos_clean.csv"   # columnas: producto_id,producto,...
+OUTCSV  = "data/processed/pedidos_suc_monteagudo_1.csv"  # columnas: producto_id,producto,...
 
 def norm_txt(s: str) -> str:
     s = (s or "").strip()
