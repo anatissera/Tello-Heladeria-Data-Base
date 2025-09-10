@@ -70,7 +70,6 @@ def fraction_to_float(x: str) -> Optional[float]:
     s = norm_txt(str(x)).replace(",", ".")
     if s in {"", "mandar", "hay"}:
         return None
-
     m = re.match(r"^(-?\d+)\s+(\d+)/(\d+)$", s)  
     if m:
         a, b, c = m.groups()
@@ -78,7 +77,6 @@ def fraction_to_float(x: str) -> Optional[float]:
             return float(a) + (float(b) / float(c))
         except ZeroDivisionError:
             return None
-
     m = re.match(r"^(-?\d+)/(\d+)$", s)       
     if m:
         b, c = m.groups()
@@ -86,7 +84,6 @@ def fraction_to_float(x: str) -> Optional[float]:
             return float(b) / float(c)
         except ZeroDivisionError:
             return None
-
     try:
         return float(s)
     except ValueError:
@@ -119,19 +116,15 @@ def cargar_maestro(path: str):
     for c in ["ID", "nombre", "familia", "categoria"]:
         if c not in m.columns:
             raise ValueError(f"Falta columna '{c}' en {path}")
-
     for col in ["ID", "nombre", "familia", "categoria"]:
         m[col] = m[col].fillna("").astype(str).str.strip()
-
     m["nombre_norm"] = m["nombre"].map(norm_txt)
     m["nombre_norm"] = m["nombre_norm"].map(apply_alias)  
     m["categoria_norm"] = m["categoria"].map(norm_txt)
-
     id_by_norm: Dict[str, str]    = dict(zip(m["nombre_norm"], m["ID"]))
     name_by_norm: Dict[str, str]  = dict(zip(m["nombre_norm"], m["nombre"]))
     fam_by_norm: Dict[str, str]   = dict(zip(m["nombre_norm"], m["familia"]))
     cat_by_norm: Dict[str, str]   = dict(zip(m["nombre_norm"], m["categoria_norm"]))
-
     universe_norm: Set[str] = set(m["nombre_norm"])
     return id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm
 
@@ -149,28 +142,23 @@ def parse_pedido_csv(
     df_raw: pd.DataFrame,
     id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm: Set[str]
 ) -> pd.DataFrame:
-
     out_rows = []
     df = df_raw.astype(str)
-
     for _, row in df.iterrows():
         cells = row.tolist()
         i, n = 0, len(cells)
-
         while i < n:
             nm = best_match(cells[i], universe_norm)
             if not nm:
                 i += 1
                 continue
-
             prod_id = id_by_norm[nm]
             prod_nm = name_by_norm[nm]
             fam     = fam_by_norm[nm]
             cat     = cat_by_norm[nm] 
-
             if cat in CATS_2:
                 pozo_raw   = cells[i+1] if i+1 < n else ""
-                salon_raw  = ""  # debe salir vacío
+                salon_raw  = ""  
                 mandar_raw = cells[i+2] if i+2 < n else ""
                 step = 3
             else:
@@ -178,17 +166,14 @@ def parse_pedido_csv(
                 salon_raw  = cells[i+2] if i+2 < n else ""
                 mandar_raw = cells[i+3] if i+3 < n else ""
                 step = 4
-
             def as_qty(x, force_empty=False):
                 if force_empty:
                     return ""  
                 val = fraction_to_float(x)
                 return 0.0 if val is None else val
-
             pozo   = as_qty(pozo_raw)
             salon  = as_qty(salon_raw, force_empty=(cat in CATS_2))
             mandar = as_qty(mandar_raw)
-
             out_rows.append({
                 "producto_id": prod_id,
                 "producto": prod_nm,
@@ -198,30 +183,22 @@ def parse_pedido_csv(
                 "salon": salon,     
                 "mandar": mandar
             })
-
             i += step
-
     if not out_rows:
         return pd.DataFrame(columns=["producto_id","producto","familia","categoria","pozo","salon","mandar"])
-
     df_out = pd.DataFrame(out_rows)
-
     for c in ["pozo","mandar"]:
         df_out[c] = pd.to_numeric(df_out[c], errors="coerce").fillna(0.0)
-
     df_out = (
         df_out
         .assign(salon_num=pd.to_numeric(df_out["salon"], errors="coerce").fillna(0.0))
         .groupby(["producto_id","producto","familia","categoria"], as_index=False)
         .agg({"pozo":"sum","salon_num":"sum","mandar":"sum"})
     )
-
     df_out["salon"] = df_out.apply(lambda r: "" if r["categoria"] in CATS_2 else r["salon_num"], axis=1)
     df_out = df_out.drop(columns=["salon_num"])
-
     df_out = df_out[["producto_id","producto","familia","categoria","pozo","salon","mandar"]]
     df_out = df_out.sort_values(["categoria","familia","producto"]).reset_index(drop=True)
-
     return df_out
 
 
@@ -230,9 +207,7 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"No se encontró {MAESTRO}")
     if not Path(CSV_PEDIDO).exists():
         raise FileNotFoundError(f"No se encontró {CSV_PEDIDO}")
-
     id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm = cargar_maestro(MAESTRO)
-
     raw = read_dirty_csv(CSV_PEDIDO)
     clean = parse_pedido_csv(raw, id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm)
     clean.to_csv(OUTCSV, index=False, encoding="utf-8")
