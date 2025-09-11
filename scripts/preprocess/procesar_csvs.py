@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Optional, Dict, Set
 import pandas as pd
 from difflib import get_close_matches
-from torch import cat
+from torch import cat 
 
 MAESTRO = "data/catalog/productos.csv"                 
-CSV_PEDIDO = "data/raw/monteagudo1.csv"  
-OUTCSV  = "data/processed/pedidos_suc_monteagudo_1.csv"
+CSV_PEDIDO = "data/raw/sept2.csv"  
+OUTCSV  = "data/processed/pedidos_suc_sept2.csv"
 
 FUZZY_CUTOFF = 0.88
 
@@ -138,27 +138,95 @@ def best_match(cell: str, universe: Set[str]) -> Optional[str]:
     cand = get_close_matches(s, list(universe), n=1, cutoff=FUZZY_CUTOFF)
     return cand[0] if cand else None
 
+# detectar rótulos de sección en celdas
+def detect_section_label(cell: str) -> Optional[str]:
+    t = norm_txt(cell)
+    if not t:
+        return None
+    if ("tacita" in t and "diet" in t) or t == "diet":
+        return "diet"
+    if t.startswith("tartas"):
+        return "tartas"
+    if t.startswith("tortas heladas"):
+        return "tortas_heladas"
+    if t.startswith("tortas"):
+        return "tortas"
+    return None
+
+# mapping base→diet y base→tarta según columna
+_DIET_BASE_MAP = {
+    "anana": "diet anana",
+    "americana": "diet americana",
+    "banana": "diet banana",
+    "dulce de leche": "diet dulce de leche",
+    "durazno": "diet durazno",
+    "vainilla": "diet vainilla",
+}
+def to_diet_candidate(raw_name: str, universe: Set[str]) -> Optional[str]:
+    base = apply_alias(norm_txt(raw_name))
+    # casos especiales comunes en el raw:
+    base = re.sub(r"\s+al\s+agua$", "", base)           # "durazno al agua" -> "durazno"
+    base = {"bananas": "banana"}.get(base, base)
+    cand = _DIET_BASE_MAP.get(base, f"diet {base}")
+    return cand if cand in universe else None
+
+def to_tarta_candidate(raw_name: str, universe: Set[str]) -> Optional[str]:
+    base = apply_alias(norm_txt(raw_name))
+    base = re.sub(r"\s+tarta$", "", base)
+    cand = f"{base} tarta"
+    return cand if cand in universe else None
+
 def parse_pedido_csv(
     df_raw: pd.DataFrame,
     id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm: Set[str]
 ) -> pd.DataFrame:
     out_rows = []
     df = df_raw.astype(str)
+
+    # contexto por columna (persiste fila a fila hasta que otro rótulo lo cambie)
+    col_ctx: Dict[int, Optional[str]] = {}
+
     for _, row in df.iterrows():
         cells = row.tolist()
+
+        # actualizar contexto de columnas según rótulos presentes en esta fila
+        for j, c in enumerate(cells):
+            lab = detect_section_label(c)
+            if lab:
+                col_ctx[j] = lab
+
+        # escanear la fila
         i, n = 0, len(cells)
         while i < n:
-            nm = best_match(cells[i], universe_norm)
-            if not nm:
+            raw_token = cells[i]
+            if not norm_txt(raw_token):
                 i += 1
                 continue
-            prod_id = id_by_norm[nm]
-            prod_nm = name_by_norm[nm]
-            fam     = fam_by_norm[nm]
-            cat     = cat_by_norm[nm] 
+
+            # objetivo por contexto
+            ctx = col_ctx.get(i)
+            nm_target = None
+            if ctx == "diet":
+                nm_target = to_diet_candidate(raw_token, universe_norm)
+            elif ctx == "tartas":
+                nm_target = to_tarta_candidate(raw_token, universe_norm)
+
+            # fallback: best_match normal
+            if not nm_target:
+                nm_target = best_match(raw_token, universe_norm)
+
+            if not nm_target:
+                i += 1
+                continue
+
+            prod_id = id_by_norm[nm_target]
+            prod_nm = name_by_norm[nm_target]
+            fam     = fam_by_norm[nm_target]
+            cat     = cat_by_norm[nm_target]  # ya viene “diet” o “tartas” si hubo override
+
             if cat in CATS_2:
                 pozo_raw   = cells[i+1] if i+1 < n else ""
-                salon_raw  = ""  
+                salon_raw  = ""
                 mandar_raw = cells[i+2] if i+2 < n else ""
                 step = 3
             else:
@@ -166,29 +234,36 @@ def parse_pedido_csv(
                 salon_raw  = cells[i+2] if i+2 < n else ""
                 mandar_raw = cells[i+3] if i+3 < n else ""
                 step = 4
+
             def as_qty(x, force_empty=False):
                 if force_empty:
-                    return ""  
+                    return ""
                 val = fraction_to_float(x)
                 return 0.0 if val is None else val
+
             pozo   = as_qty(pozo_raw)
             salon  = as_qty(salon_raw, force_empty=(cat in CATS_2))
             mandar = as_qty(mandar_raw)
+
             out_rows.append({
                 "producto_id": prod_id,
                 "producto": prod_nm,
                 "familia": fam,
                 "categoria": cat,
                 "pozo": pozo,
-                "salon": salon,     
+                "salon": salon,
                 "mandar": mandar
             })
+
             i += step
+
     if not out_rows:
         return pd.DataFrame(columns=["producto_id","producto","familia","categoria","pozo","salon","mandar"])
+
     df_out = pd.DataFrame(out_rows)
     for c in ["pozo","mandar"]:
         df_out[c] = pd.to_numeric(df_out[c], errors="coerce").fillna(0.0)
+
     df_out = (
         df_out
         .assign(salon_num=pd.to_numeric(df_out["salon"], errors="coerce").fillna(0.0))
