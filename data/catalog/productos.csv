@@ -102,3 +102,91 @@ ID,nombre,familia, categoria
 400, Nutella, , Minitortas
 401, Dulccina, , Minitortas
 402, Cheescake DL/ Oreo, , Minitortas
+200, Caramelo, , Salsas
+201, Chocolate, , Salsas
+202, Frutilla, , Salsas
+203, Dulce de Leche, , Salsas
+204, Affogato, , Salsas
+250, Brownie, , Cuadrados
+251, Coco, , Cuadrados
+252, Pastafrola, , Cuadrados
+280, Almendra baña x100, , Chocolates
+281, Almendra baña x150, , Chocolates
+282, Almendra confitada x100, , Chocolates
+283, Almendra confitada x250, , Chocolates
+1, Tiramisu, , Postre envasado
+2, Brownie con frutos rojos, , Postre envasado 
+10, Azucar, , Agregados
+11, Baño de Chocolate, , Agregados
+12, Logo Tello, , Agregados
+13, Cerezas (lata), , Agregados
+14, Chispas de chocolate, , Agregados
+15, Kinotos (lata), , Agregados
+16, Lajas, , Agregados
+17, Merenguitos, , Agregados
+18, Nueces, , Agregados
+19, Rocklets, , Agregados
+20, Pañuelos p/copas, , Agregados
+21, Leche descremada, , Agregados
+22, Bombones p/cafe, , Agregados
+23, Chocolate p/submarino, , Agregados
+50, Bolsa consorcio, , Bolsas
+51, Bolsa residuos, , Bolsas
+52, Bolsa camiseta, , Bolsas
+53, Bolsa p/conito, , Bolsas
+54, Bolsa chica c/logo, , Bolsas
+55, Bolsa grande c/logo, , Bolsas
+70, Guantes, , Insumos
+71, Portaconos, , Insumos
+72, Cucharita sundae, , Insumos
+73, Folex, , Insumos
+74, Servilletas blancas, , Insumos
+75, Servilletas beige Tello, , Insumos
+76, Vasos c/ logo 120cc, , Insumos
+77, Vasos c/ logo 360cc, , Insumos
+78, Vasos plastico milkshake, , Insumos
+79, Sorbetes, , Insumos
+80, Cajas p/ tartas, , Insumos
+81, Cajas p/ tortas medianas, , Insumos
+82, Cajas p/ tortas grandes, , Insumos
+83, Blondas, , Insumos
+84, Moños por paquete, , Insumos
+85, Velas, , Insumos
+86, Bandeja chica, , Insumos
+87, Bandeja grande, , Insumos
+88, Helafilm 1/4kg, , Insumos
+89, Helafilm 1/2kg, , Insumos
+90, Helafilm 1kg, , Insumos
+91, Cinta con logo TELLO, , Insumos
+110, Lapiceras, , Utiles
+111, Felpon, , Utiles
+112, Broches n°21/6, , Utiles
+113, Liquido corrector, , Utiles
+114, Remito devolucion mercaderia, , Utiles
+115, Sobres, , Utiles
+116, Gomillas, , Utiles
+117, Cinta transparente, , Utiles
+150, Mini tarta manzana, , Para postre
+151, Cookie americana, , Para postre
+152, Toping arandanos, , Para postre
+153, Plancha brownie, , Para postre
+154, Volcan, , Para postre
+155, Sopa inglesa, , Para postre
+156, Hojaldre, , Para postre
+157, Pera disecada, , Para postre
+158, Manzana disecada, , Para postre
+159, Trufa p/ fondeau, , Para postre
+160, Chocolate para fondeau, , Para postre
+161, Crema de leche, , Para postre
+162, Dulce de leche familiar, , Para postre
+163, Ensalada frutas (lata), , Para postre
+164, Peras (lata), , Para postre
+165, Ganache blanca, , Para postre
+166, Alcohol liquido, , Para postre
+167, Cuchara media bola, , Para postre
+168, Espatula chata, , Para postre
+169, Cornet, , Para postre
+170, Rollos p/imp fiscal, , Para postre
+171, Rollo posnet, , Para postre
+
+
