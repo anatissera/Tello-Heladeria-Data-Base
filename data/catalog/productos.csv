@@ -103,18 +103,18 @@ ID,nombre,familia, categoria
 401, Dulccina, , Minitortas
 402, Cheescake DL/ Oreo, , Minitortas
 200, Caramelo, , Salsas
-201, Chocolate, , Salsas
+201, Salsa Chocolate, , Salsas
 202, Frutilla, , Salsas
-203, Dulce de Leche, , Salsas
+203, Salsa Dulce de Leche, , Salsas
 204, Affogato, , Salsas
-250, Brownie, , Cuadrados
+250, Cuadradito Brownie, , Cuadrados
 251, Coco, , Cuadrados
 252, Pastafrola, , Cuadrados
 280, Almendra baña x100, , Chocolates
 281, Almendra baña x150, , Chocolates
 282, Almendra confitada x100, , Chocolates
 283, Almendra confitada x250, , Chocolates
-1, Tiramisu, , Postre envasado
+1, Tiramisu Postre, , Postre envasado
 2, Brownie con frutos rojos, , Postre envasado 
 10, Azucar, , Agregados
 11, Baño de Chocolate, , Agregados
