@@ -1,4 +1,28 @@
 producto_id,producto,familia,categoria,pozo,salon,mandar
+10,Azucar,,agregados,0.0,0.0,0.0
+22,Bombones p/cafe,,agregados,0.0,0.0,0.0
+13,Cerezas (lata),,agregados,0.0,0.0,0.0
+14,Chispas de chocolate,,agregados,0.0,0.0,0.0
+23,Chocolate p/submarino,,agregados,6.0,0.0,0.0
+15,Kinotos (lata),,agregados,0.0,0.0,0.0
+16,Lajas,,agregados,0.0,0.0,0.0
+21,Leche descremada,,agregados,6.0,0.0,0.0
+12,Logo Tello,,agregados,0.0,0.0,0.0
+17,Merenguitos,,agregados,0.0,0.0,0.0
+18,Nueces,,agregados,0.0,0.0,0.0
+20,Pañuelos p/copas,,agregados,0.0,0.0,0.0
+19,Rocklets,,agregados,3.0,0.0,0.0
+52,Bolsa camiseta,,bolsas,0.0,0.0,0.0
+50,Bolsa consorcio,,bolsas,2.0,0.0,0.0
+53,Bolsa p/conito,,bolsas,2.0,0.0,0.0
+51,Bolsa residuos,,bolsas,2.0,0.0,0.0
+280,Almendra baña x100,,chocolates,2.0,0.0,0.0
+281,Almendra baña x150,,chocolates,2.0,0.0,0.0
+282,Almendra confitada x100,,chocolates,0.0,0.0,0.0
+283,Almendra confitada x250,,chocolates,0.0,0.0,0.0
+251,Coco,,cuadrados,0.0,2.0,1.0
+250,Cuadradito Brownie,,cuadrados,0.0,3.0,0.0
+252,Pastafrola,,cuadrados,0.0,2.0,1.0
 733,DIET AMERICANA,,diet,1.0,,0.0
 734,DIET ANANA,,diet,1.0,,0.0
 735,DIET BANANA,,diet,0.0,,0.0
@@ -6,7 +30,7 @@ producto_id,producto,familia,categoria,pozo,salon,mandar
 737,DIET DURAZNO,,diet,2.0,,0.0
 738,DIET VAINILLA,,diet,1.0,,0.0
 710,BOMBON ROCHER,chocolate,helado,0.0,1.5,0.0
-723,CHOCOLATE,chocolate,helado,1.0,1.5,1.0
+723,CHOCOLATE,chocolate,helado,0.0,1.5,0.0
 724,CHOCOLATE A LA CUBANA,chocolate,helado,0.0,-0.25,1.0
 725,CHOCOLATE AMARGO,chocolate,helado,0.0,1.0,0.0
 726,CHOCOLATE BLANCO,chocolate,helado,0.0,1.25,0.0
@@ -41,7 +65,7 @@ producto_id,producto,familia,categoria,pozo,salon,mandar
 762,PANACOTTA,crema blanca,helado,0.0,1.25,0.0
 775,PISTACHO,crema blanca,helado,0.0,0.0,1.0
 763,SAMBAYON,crema blanca,helado,0.0,1.0,0.0
-764,TIRAMISU,crema blanca,helado,0.0,3.25,1.0
+764,TIRAMISU,crema blanca,helado,0.0,0.25,1.0
 766,TORTA BROWNIE,crema blanca,helado,0.0,1.0,0.0
 776,YOGUR GRIEGO,crema blanca,helado,0.0,1.0,0.0
 721,CREMA DON PEDRO,crema vainilla,helado,0.0,1.0,0.0
@@ -51,7 +75,7 @@ producto_id,producto,familia,categoria,pozo,salon,mandar
 770,VAINILLA GRANIZADA,crema vainilla,helado,0.0,1.0,0.0
 717,CHOCOTORTA,dulce de leche,helado,0.0,0.75,0.0
 739,DOLCCINO,dulce de leche,helado,0.0,1.5,0.0
-740,DULCE DE LECHE,dulce de leche,helado,2.0,1.5,0.0
+740,DULCE DE LECHE,dulce de leche,helado,0.0,1.5,0.0
 741,DULCE DE LECHE BOMBON,dulce de leche,helado,0.0,1.0,0.0
 742,DULCE DE LECHE CON NUEZ,dulce de leche,helado,0.0,0.5,1.0
 743,DULCE DE LECHE GRANIZADO,dulce de leche,helado,1.0,0.5,0.0
@@ -61,6 +85,24 @@ producto_id,producto,familia,categoria,pozo,salon,mandar
 750,FRUTILLA AL AGUA,frutas,helado,0.0,0.25,0.0
 755,LIMON,frutas,helado,0.0,1.25,0.0
 757,MANGO,frutas,helado,0.0,0.75,0.0
+86,Bandeja chica,,insumos,0.0,0.0,0.0
+87,Bandeja grande,,insumos,0.0,0.0,0.0
+83,Blondas,,insumos,0.0,0.0,0.0
+91,Cinta con logo TELLO,,insumos,3.0,0.0,0.0
+72,Cucharita sundae,,insumos,0.0,0.0,0.0
+73,Folex,,insumos,0.0,0.0,0.0
+70,Guantes,,insumos,0.0,0.0,0.0
+89,Helafilm 1/2kg,,insumos,3.0,0.0,0.0
+88,Helafilm 1/4kg,,insumos,7.0,0.0,0.0
+90,Helafilm 1kg,,insumos,3.0,0.0,0.0
+84,Moños por paquete,,insumos,0.0,0.0,0.0
+71,Portaconos,,insumos,0.0,0.0,0.0
+75,Servilletas beige Tello,,insumos,0.0,0.0,0.0
+74,Servilletas blancas,,insumos,0.0,0.0,0.0
+79,Sorbetes,,insumos,0.0,0.0,0.0
+76,Vasos c/ logo 120cc,,insumos,2.0,0.0,0.0
+77,Vasos c/ logo 360cc,,insumos,2.0,0.0,0.0
+85,Velas,,insumos,0.0,0.0,0.0
 402,Cheescake DL/ Oreo,,minitortas,0.0,2.0,0.0
 401,Dulccina,,minitortas,0.0,2.0,0.0
 400,Nutella,,minitortas,0.0,0.0,2.0
@@ -75,7 +117,33 @@ producto_id,producto,familia,categoria,pozo,salon,mandar
 501,Tango,,paletas,0.0,2.0,2.0
 509,Vaca Aurora,,paletas,0.0,2.0,2.0
 508,chocolatin,,paletas,0.0,0.0,2.0
-600,Brownie,,tartas,5.0,3.0,5.0
+166,Alcohol liquido,,para postre,0.0,0.0,0.0
+151,Cookie americana,,para postre,1.0,0.0,0.0
+169,Cornet,,para postre,0.0,0.0,0.0
+161,Crema de leche,,para postre,0.0,0.0,0.0
+167,Cuchara media bola,,para postre,0.0,0.0,0.0
+162,Dulce de leche familiar,,para postre,3.0,0.0,0.0
+163,Ensalada frutas (lata),,para postre,3.0,0.0,0.0
+168,Espatula chata,,para postre,0.0,0.0,0.0
+165,Ganache blanca,,para postre,0.0,0.0,0.0
+156,Hojaldre,,para postre,4.0,0.0,0.0
+158,Manzana disecada,,para postre,0.0,0.0,0.0
+150,Mini tarta manzana,,para postre,1.0,1.0,0.0
+157,Pera disecada,,para postre,0.0,0.0,0.0
+164,Peras (lata),,para postre,2.0,0.0,0.0
+153,Plancha brownie,,para postre,5.0,0.0,0.0
+171,Rollo posnet,,para postre,0.0,0.0,0.0
+170,Rollos p/imp fiscal,,para postre,0.0,0.0,0.0
+155,Sopa inglesa,,para postre,0.0,1.0,0.0
+152,Toping arandanos,,para postre,0.0,0.0,0.0
+154,Volcan,,para postre,5.0,0.0,0.0
+2,Brownie con frutos rojos,,postre envasado,0.0,1.0,1.0
+1,Tiramisu Postre,,postre envasado,0.0,3.0,0.0
+200,Caramelo,,salsas,1.0,0.0,1.0
+202,Frutilla,,salsas,2.0,0.0,0.0
+201,Salsa Chocolate,,salsas,1.0,0.0,1.0
+203,Salsa Dulce de Leche,,salsas,2.0,0.0,0.0
+600,Brownie,,tartas,5.0,0.0,5.0
 601,Cabsha,,tartas,9.0,0.0,0.0
 608,Cheescake Tarta,,tartas,0.0,0.0,0.0
 602,Higo,,tartas,16.0,0.0,9.0
@@ -99,3 +167,11 @@ producto_id,producto,familia,categoria,pozo,salon,mandar
 800,OMELETTE,,tortas heladas,3.0,0.0,0.0
 804,PRIMAVERA,,tortas heladas,3.0,0.0,0.0
 807,VERONA,,tortas heladas,3.0,0.0,0.0
+112,Broches n°21/6,,utiles,4.0,0.0,0.0
+117,Cinta transparente,,utiles,4.0,0.0,0.0
+111,Felpon,,utiles,0.0,0.0,0.0
+116,Gomillas,,utiles,0.0,0.0,0.0
+110,Lapiceras,,utiles,0.0,0.0,0.0
+113,Liquido corrector,,utiles,0.0,0.0,0.0
+114,Remito devolucion mercaderia,,utiles,0.0,0.0,0.0
+115,Sobres,,utiles,0.0,0.0,0.0
