@@ -106,7 +106,7 @@ ID,nombre,familia, categoria
 201, Salsa Chocolate, , Salsas
 202, Frutilla, , Salsas
 203, Salsa Dulce de Leche, , Salsas
-204, Affogato, , Salsas
+204, Sirope p/ Affogato, , Salsas
 250, Cuadradito Brownie, , Cuadrados
 251, Coco, , Cuadrados
 252, Pastafrola, , Cuadrados
@@ -134,8 +134,11 @@ ID,nombre,familia, categoria
 51, Bolsa residuos, , Bolsas
 52, Bolsa camiseta, , Bolsas
 53, Bolsa p/conito, , Bolsas
-54, Bolsa chica c/logo, , Bolsas
-55, Bolsa grande c/logo, , Bolsas
+54, Bolsa chica c/logo (papel), , Bolsas
+55, Bolsa grande c/logo (papel), , Bolsas
+56, Bolsa gde. c/logo (plast. torta redonda), , Bolsas
+57, Bolsa rectang. c/logo (plast. torta rectang.), , Bolsas
+58, Delivery (papel s/manija), , Bolsas
 70, Guantes, , Insumos
 71, Portaconos, , Insumos
 72, Cucharita sundae, , Insumos
@@ -158,6 +161,11 @@ ID,nombre,familia, categoria
 89, Helafilm 1/2kg, , Insumos
 90, Helafilm 1kg, , Insumos
 91, Cinta con logo TELLO, , Insumos
+92, Caja para paleta, ,Insumos
+93, Caja mini torta,, Insumos
+94, Caja Bom. Tello chic. (5 u), , Insumos
+95, Caja Bom. Tello Med (7 u), , Insumos
+96, Caja Bom.Tello Gde (12 u), , Insumos
 110, Lapiceras, , Utiles
 111, Felpon, , Utiles
 112, Broches n°21/6, , Utiles
@@ -186,7 +194,34 @@ ID,nombre,familia, categoria
 167, Cuchara media bola, , Para postre
 168, Espatula chata, , Para postre
 169, Cornet, , Para postre
-170, Rollos p/imp fiscal, , Para postre
-171, Rollo posnet, , Para postre
-
-
+170, Rollos p/imp fiscal, , Insumos
+171, Rollo posnet, , Insumos
+550, Queso Untable, , Cafeteria
+551, Te clasico,, Cafeteria
+552, Te de boldo,, Cafeteria
+553, Te de manzanilla,, Cafeteria
+554, Te de frutilla,, Cafeteria
+555, Te de limón,, Cafeteria
+556, Te de hierbas,, Cafeteria
+557, Mate cocido,, Cafeteria
+558, Café bolsa x 1 kg,, Cafeteria
+559, Azucar x caja,, Cafeteria
+560, Edulcorante x caja,, Cafeteria
+561, Chocolate submarino,, Cafeteria
+562, Capuccino ,, Cafeteria
+563, Aguas ,, Cafeteria
+564, Aguas saborizadas,, Cafeteria
+565, Gaseosas ,, Cafeteria
+566, Vaso de cafe chico 180 cc,, Descartables
+567, Vaso de cafe grande 240 cc,, Descartables
+568, Removedor de cafe,, Descartables
+569, Porta vaso de cafe,, Descartables
+570, Bandeja telgopor ,, Descartables
+571, Recipiente p/ dulce,, Descartables
+850, choco dubai,, Tabletas de Chocolate
+851, limon cranch,, Tabletas de Chocolate
+852, caramelo salado,, Tabletas de Chocolate
+853, Marroc,, Tabletas de Chocolate
+854, Oreo,, Tabletas de Chocolate
+855, Frutos secos,, Tabletas de Chocolate
+856, Rocklets,, Tabletas de Chocolate

@@ -8,13 +8,13 @@ from difflib import get_close_matches
 from torch import cat 
 
 MAESTRO = "data/catalog/productos.csv"                 
-CSV_PEDIDO = "data/raw/yerba4.csv"  
-OUTCSV  = "data/processed/pedidos_suc_yerba4.csv"
+CSV_PEDIDO = "data/raw/catam1.csv"  
+OUTCSV  = "data/processed/pedidos_suc_catam1.csv"
 
 FUZZY_CUTOFF = 0.88
 
 CATS_3 = {"helado", "minitortas", "paletas", "tortas heladas", "tortas", "tartas"}
-CATS_2 = {"diet"}
+CATS_2 = {"diet", "salsas", "cuadrados", "chocolates", "postre envasado", "agregados", "bolsas", "insumos", "utiles","para postre"}
 
 ALIASES = {
     "crema de higo c/nuez": "crema de higo con nuez",
@@ -49,6 +49,10 @@ ALIASES = {
     "ddl": "dulce de leche",
     "salsa ddl": "salsa dulce de leche",
     "salsa d de leche": "salsa dulce de leche",
+    "felpon": "felpón",
+    "sirope p/ affogato": "sirope para affogato",
+    "baño de chocolate": "baño choco",
+    "vasos plastico milkshake": "vaso plast.milk shake"
 }
 
 def strip_accents(s: str) -> str:
@@ -154,7 +158,8 @@ def detect_section_label(cell: str) -> Optional[str]:
         return "tortas_heladas"
     if t.startswith("tortas"):
         return "tortas"
-    
+    if t.startswith("cajas"):
+        return "cajas"
     if t.startswith("salsas"):
         return "salsas"
     if t.startswith("cuadrados"):
@@ -163,6 +168,16 @@ def detect_section_label(cell: str) -> Optional[str]:
         return "postre_envasado"
 
     return None
+
+def to_cajas_candidate(raw_name: str, universe: Set[str]) -> Optional[str]:
+    base = norm_txt(raw_name)
+    mapping = {
+        "tartas": "cajas p/ tartas",
+        "tortas medianas": "cajas p/ tortas medianas",
+        "tortas grandes": "cajas p/ tortas grandes",
+    }
+    cand = mapping.get(base)
+    return cand if cand in universe else None
 
 # elegir el primer candidato que exista en universe_norm
 def first_existing(cands, universe: Set[str]) -> Optional[str]:
@@ -364,6 +379,8 @@ def parse_pedido_csv(
                 nm_target = to_cuadrados_candidate(raw_token, universe_norm)
             elif ctx == "postre_envasado":
                 nm_target = to_postre_envasado_candidate(raw_token, universe_norm)
+            elif ctx == "cajas":
+                nm_target = to_cajas_candidate(raw_token, universe_norm)
             # ------------------------------------------------
 
             # fallback: best_match normal
@@ -380,8 +397,8 @@ def parse_pedido_csv(
             cat     = cat_by_norm[nm_target]
 
             if cat in CATS_2:
-                pozo_raw   = cells[i+1] if i+1 < n else ""
-                salon_raw  = ""
+                pozo_raw   = ""  
+                salon_raw  = cells[i+1] if i+1 < n else ""
                 mandar_raw = cells[i+2] if i+2 < n else ""
                 step = 3
             else:

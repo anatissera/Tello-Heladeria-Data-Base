@@ -3,7 +3,7 @@ import unicodedata
 import re
 
 MAESTRO = "data/catalog/productos.csv"                
-OUTCSV  = "data/processed/pedidos_suc_sept2.csv" 
+OUTCSV  = "data/processed/pedidos_suc_catam1.csv" 
 
 print(OUTCSV)
 
