@@ -8,8 +8,8 @@ from difflib import get_close_matches
 from torch import cat 
 
 MAESTRO = "data/catalog/productos.csv"                 
-CSV_PEDIDO = "data/raw/catam1.csv"  
-OUTCSV  = "data/processed/pedidos_suc_catam1.csv"
+CSV_PEDIDO = "data/raw/yerba4.csv"  
+OUTCSV  = "data/processed/pedidos_suc_yerba4.csv"
 
 FUZZY_CUTOFF = 0.88
 
@@ -51,8 +51,9 @@ ALIASES = {
     "salsa d de leche": "salsa dulce de leche",
     "felpon": "felpón",
     "sirope p/ affogato": "sirope para affogato",
-    "baño de chocolate": "baño choco",
+    "baño de chocolate": "baño de choco",
     "vasos plastico milkshake": "vaso plast.milk shake"
+
 }
 
 def strip_accents(s: str) -> str:
