@@ -20,8 +20,7 @@ CREATE TABLE app.direccion (
   piso         TEXT,              
   depto        TEXT,
   localidad    TEXT NOT NULL,
-  cp           TEXT NOT NULL,
-  UNIQUE (calle, numero, piso, depto, localidad, cp) -- para no duplicados ta ok? -> yo opino que sí pueden vivir en el mismo departamento, capaz son los padres de Athina que viven en la misma casa no sé.
+  cp           TEXT NOT NULL
 );
 
 -- TABLA SUCURSAL
@@ -34,7 +33,7 @@ CREATE TABLE app.sucursal (
                 ON DELETE RESTRICT
 );
 
-CREATE INDEX ON app.sucursal(id_direccion); -- para los joisn con id_Dire
+CREATE INDEX ON app.sucursal(ID_direccion); -- para los joisn con ID_dir
 
 -- TABLA USUARIO
 
@@ -122,8 +121,15 @@ CREATE TABLE app.pedido (
                 ON DELETE SET NULL
 );
 
-CREATE INDEX ON app.pedido(id_suc);
-CREATE INDEX ON app.pedido(dni_empleado);
+CREATE INDEX ON app.pedido(ID_suc);
+CREATE INDEX ON app.pedido(DNI_empleado);
+CREATE INDEX ON app.pedido(DNI_admin);
+
+-- Integridad
+ALTER TABLE app.pedido
+  ADD CONSTRAINT ck_pedido_admin_segun_estado
+  CHECK (estado = 'emitido' OR DNI_admin IS NOT NULL);
+-- no se puede pasar un pedido de "emitido" a otro estado sin haberle asignado un administrador
 
 
 CREATE TABLE app.entrega (
@@ -148,15 +154,95 @@ CREATE INDEX ON app.entrega(DNI_proveedor);
 -- Relación Contiene
 
 CREATE TABLE app.contiene (
-    id_producto INTEGER NOT NULL
-                REFERENCES app.producto(id_producto)
+    ID_producto INTEGER NOT NULL
+                REFERENCES app.producto(ID_producto)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT,
-    id_pedido   INTEGER NOT NULL
-                REFERENCES app.pedido(id_pedido)
+    ID_pedido   INTEGER NOT NULL
+                REFERENCES app.pedido(ID_pedido)
                 ON UPDATE CASCADE
                 ON DELETE CASCADE,
     cantidad    INTEGER NOT NULL CHECK (cantidad > 0),
-    PRIMARY KEY (id_producto, id_pedido)
+    PRIMARY KEY (ID_producto, ID_pedido)
 );
-CREATE INDEX ON app.contiene(id_pedido);
+CREATE INDEX ON app.contiene(ID_pedido);
+
+
+
+-- Manejo de Inconsistencias
+
+-- si un pedido cambia a estado "entregado" tiene que existir una fila asociada en entrega
+CREATE OR REPLACE FUNCTION app.chk_pedido_entregado()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.estado = 'entregado' THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM app.entrega e
+      WHERE e.ID_pedido = NEW.ID_pedido
+    ) THEN
+      RAISE EXCEPTION 
+        'No se puede marcar como entregado el pedido %: falta la fila en entrega',
+        NEW.id_pedido;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- asociamos la función a la tabla pedido, para que corra antes de UPDATE o INSERT
+CREATE TRIGGER trg_chk_pedido_entregado
+BEFORE INSERT OR UPDATE ON app.pedido
+FOR EACH ROW
+EXECUTE FUNCTION app.chk_pedido_entregado();
+
+
+
+-- no permitir entrega si el pedido está cancelado o no existe
+CREATE OR REPLACE FUNCTION app.chk_entrega_permitida()
+RETURNS TRIGGER AS $$
+DECLARE v_estado app.pedido_estado;
+BEGIN
+  SELECT estado INTO v_estado
+  FROM app.pedido
+  WHERE ID_pedido = NEW.ID_pedido
+  FOR UPDATE;
+
+  -- si no existe pedido -> error
+  IF v_estado IS NULL THEN
+    RAISE EXCEPTION 'Pedido % inexistente', NEW.ID_pedido;
+  END IF;
+
+  -- si el pedido está cancelado -> error
+  IF v_estado = 'cancelado' THEN
+    RAISE EXCEPTION 'No se puede registrar entrega para pedido CANCELADO (%)',
+      NEW.ID_pedido;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_chk_entrega_permitida
+BEFORE INSERT OR UPDATE ON app.entrega
+FOR EACH ROW
+EXECUTE FUNCTION app.chk_entrega_permitida();
+
+
+
+-- marca automáticamente el pedido como "entregado" cuando se inserta o actualiza la entrega
+CREATE OR REPLACE FUNCTION app.auto_marcar_pedido_entregado()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE app.pedido
+     SET estado = 'entregado'
+   WHERE ID_pedido = NEW.ID_pedido
+     AND estado <> 'entregado'; -- solo si no está ya entregado
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_auto_pedido_entregado
+AFTER INSERT OR UPDATE ON app.entrega
+FOR EACH ROW
+EXECUTE FUNCTION app.auto_marcar_pedido_entregado();
+
