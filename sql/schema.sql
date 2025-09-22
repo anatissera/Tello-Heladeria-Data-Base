@@ -74,25 +74,22 @@ CREATE TABLE app.familia (
     nombre TEXT NOT NULL UNIQUE
 );
 
-
 CREATE TABLE app.producto (
-  ID_producto  INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  nombre       TEXT NOT NULL,
-  ID_categoria INTEGER NOT NULL
-                REFERENCES app.categoria(ID_categoria)
+    id_producto  INTEGER PRIMARY KEY,  -- lo cargás vos desde el CSV
+    nombre       TEXT NOT NULL,
+    id_categoria INTEGER NOT NULL
+                REFERENCES app.categoria(id_categoria)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT, 
-  ID_familia   INTEGER NOT NULL
-                REFERENCES app.familia(ID_familia)
+    id_familia   INTEGER 
+                REFERENCES app.familia(id_familia)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT,
-    CONSTRAINT uq_producto UNIQUE (nombre, ID_categoria, ID_familia)
+    CONSTRAINT uq_producto UNIQUE (nombre, id_categoria, id_familia)
 );
 
-
-CREATE INDEX ON app.producto(ID_categoria);
-CREATE INDEX ON app.producto(ID_familia);
-
+CREATE INDEX ON app.producto(id_categoria);
+CREATE INDEX ON app.producto(id_familia);
 
 CREATE TABLE app.pedido (
   ID_pedido     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

@@ -1,4 +1,4 @@
-ID,nombre,familia, categoria
+id_producto,nombre,familia,categoria
 723,CHOCOLATE,chocolate, helado
 724,CHOCOLATE A LA CUBANA,chocolate, helado
 725,CHOCOLATE AMARGO,chocolate, helado
