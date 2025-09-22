@@ -1,354 +1,395 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-cargar_pedidos.py
-Carga pedidos (cabeceras + ítems) desde un CSV con filas a nivel ítem.
-
-- Crea/actualiza: sucursal (con dirección inline dummy), usuario/empleado/administrador,
-  categoria, familia, producto.
-- Inserta cabeceras de pedidos (evita duplicados buscando la cabecera antes de insertar).
-- Inserta ítems (app.contiene) con ON CONFLICT DO NOTHING.
-
-Uso:
-  python scripts/cargar_pedidos.py --csv data/pedidos_suc_yerba1.csv
-"""
-
-import os, sys, csv, re
+import os, re, csv, glob, shutil, subprocess, tempfile, sys
+from pathlib import Path
 from datetime import datetime
-from typing import Dict, Tuple, List, Optional
 from dotenv import load_dotenv
-import psycopg2
-from psycopg2.extras import execute_values
 
-# ---- Config de sinónimos de columnas
-ALIASES = {
-    "sucursal":       ["sucursal", "id_sucursal", "suc"],
-    "fecha_emision":  ["fecha_emision", "fecha", "fecha_pedido", "emision"],
-    "dni_empleado":   ["dni_empleado", "empleado_dni", "dniemp", "dni_emp"],
-    "dni_admin":      ["dni_admin", "admin_dni", "dniadm", "dni_adm", "dni_aprobador"],
-    "producto":       ["producto", "producto_nombre", "nombre_prod", "item", "nombre_producto"],
-    "categoria":      ["categoria", "cat", "categoria_nombre", "nombre_cat"],
-    "familia":        ["familia", "fam", "familia_nombre", "nombre_fam"],
-    "cantidad":       ["cantidad", "qty", "cant", "unidades"],
+ROOT   = Path(__file__).resolve().parents[1]
+CSV_IN = ROOT / "data" / "processed"
+
+# Ruta a psql: se toma de la variable de entorno PSQL, del PATH, o se fija acá.
+PSQL   = os.environ.get("PSQL") or shutil.which("psql") or "psql"
+
+# Heurística nombre archivo -> sucursal
+FILENAME_TO_SUC = {
+    "catam": "Catamarca",
+    "sept": "Microcentro",
+    "monteagudo": "Barrio Norte",
+    "yerba": None,  # localidad 'Yerba Buena'
 }
 
-def norm(s: Optional[str]) -> Optional[str]:
-    if s is None: return None
-    s = str(s).strip()
-    return s if s else None
+KNOWN = {
+  "id_producto","producto_id","id",
+  "producto","nombre_producto","item","nombre",
+  "categoria","cat",
+  "familia","fam",
+  "sucursal",
+  "cantidad","cant","qty","unidades",
+  "fecha_emision","fecha","timestamp",
+  "dni_empleado","empleado_dni","dni_emp","dniemp",
+  "dni_admin","admin_dni","dni_adm","dniadm",
+}
 
-def title_or_none(s: Optional[str]) -> Optional[str]:
-    s = norm(s)
-    return s.title() if s else None
+def sh(cmd, env=None, capture=False):
+    """Ejecuta psql u otro comando. Si capture=True, devuelve stdout.strip()."""
+    if capture:
+        r = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"Cmd fallo: {cmd}\nSTDERR:\n{r.stderr}")
+        return r.stdout.strip()
+    else:
+        r = subprocess.run(cmd, env=env)
+        if r.returncode != 0:
+            raise RuntimeError(f"Cmd fallo: {cmd}")
 
-def parse_datetime(s: Optional[str]) -> Optional[str]:
-    """
-    Devuelve string en formato 'YYYY-MM-DD HH:MM:SS' o None.
-    Acepta 'YYYY-MM-DD' y completa '00:00:00'.
-    """
-    s = norm(s)
-    if not s:
-        return None
+def psql_c(sql, env):
+    """psql -t -A -c 'sql' -> devuelve string (sin bordes, sin headers)"""
+    cmd = [PSQL, env["SUPABASE_DB_URL"], "-t", "-A", "-q", "-c", sql]
+    return sh(cmd, env=env, capture=True)
+
+def psql_f(sql_file, env):
+    cmd = [PSQL, env["SUPABASE_DB_URL"], "-v", "ON_ERROR_STOP=1", "-f", str(sql_file)]
+    sh(cmd, env=env, capture=False)
+
+def is_num(s):
     try:
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}$", s):
-            return f"{s} 00:00:00"
-        # intentar parseo más general
+        float(str(s).strip())
+        return True
+    except:
+        return False
+
+def parse_fecha(txt):
+    if not txt: return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%d/%m/%Y %H:%M"):
         try:
-            dt = datetime.fromisoformat(s.replace("Z",""))
-            return dt.strftime("%Y-%m-%d %H:%M:%S")
-        except Exception:
-            # último intento: normalizar separadores
-            return s
-    except Exception:
-        return None
-
-def get_conn():
-    load_dotenv()
-    url = os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL")
-    if not url:
-        print("ERROR: faltan SUPABASE_DB_URL / DATABASE_URL en .env", file=sys.stderr)
-        sys.exit(1)
-    # forzar ssl
-    if "sslmode=" not in url:
-        sep = "&" if "?" in url else "?"
-        url = url + f"{sep}sslmode=require"
-    return psycopg2.connect(url)
-
-def pick_header(headers_lower: Dict[str,str], keys: List[str]) -> Optional[str]:
-    for k in keys:
-        if k in headers_lower:
-            return headers_lower[k]
+            return datetime.strptime(txt.strip(), fmt)
+        except:
+            pass
     return None
 
-def read_rows(csv_path: str) -> List[dict]:
-    with open(csv_path, "r", encoding="utf-8", newline="") as f:
-        r = csv.DictReader(f)
-        headers_lower = {h.lower().strip(): h for h in r.fieldnames}
+def estado_por_num(n):
+    if n is None: return "emitido"
+    if 1 <= n <= 3: return "entregado"
+    if n == 4:      return "preparado"
+    return "emitido"
 
-        col_suc   = pick_header(headers_lower, ALIASES["sucursal"])
-        col_fecha = pick_header(headers_lower, ALIASES["fecha_emision"])
-        col_dem   = pick_header(headers_lower, ALIASES["dni_empleado"])
-        col_dad   = pick_header(headers_lower, ALIASES["dni_admin"])
-        col_prod  = pick_header(headers_lower, ALIASES["producto"])
-        col_cat   = pick_header(headers_lower, ALIASES["categoria"])
-        col_fam   = pick_header(headers_lower, ALIASES["familia"])
-        col_cant  = pick_header(headers_lower, ALIASES["cantidad"])
+def get_num_from_fname(name):
+    m = re.search(r'_(\d+)\.csv$', name.lower())
+    return int(m.group(1)) if m else None
 
-        need = [("sucursal", col_suc), ("fecha_emision", col_fecha),
-                ("producto", col_prod), ("categoria", col_cat),
-                ("familia", col_fam), ("cantidad", col_cant)]
-        missing = [n for n,c in need if not c]
-        if missing:
-            raise SystemExit(f"CSV sin columnas requeridas: {missing}. Headers={list(r.fieldnames)}")
+def infer_sucursal(env, fname, csv_single_suc):
+    # 1) CSV tiene una única sucursal
+    if csv_single_suc:
+        sql = f"""
+        SELECT id_suc||'|'||nombre||'|'||COALESCE(localidad,'')
+        FROM app.sucursal
+        WHERE lower(nombre)=lower('{csv_single_suc.replace("'", "''")}')
+           OR lower(localidad)=lower('{csv_single_suc.replace("'", "''")}')
+        ORDER BY id_suc LIMIT 1;
+        """
+        out = psql_c(sql, env)
+        if out:
+            parts = out.split("|")
+            return {"id_suc": int(parts[0]), "nombre": parts[1], "localidad": parts[2]}
 
-        out = []
-        for row in r:
-            suc = title_or_none(row.get(col_suc))
-            fecha = parse_datetime(row.get(col_fecha))
-            dni_emp = norm(row.get(col_dem)) if col_dem else None
-            dni_adm = norm(row.get(col_dad)) if col_dad else None
-            prod = norm(row.get(col_prod))
-            cat  = norm(row.get(col_cat))
-            fam  = norm(row.get(col_fam))
-            try:
-                cant = int(float(row.get(col_cant))) if row.get(col_cant) not in (None,"") else None
-            except Exception:
-                cant = None
+    # 2) por nombre archivo
+    for key, target in FILENAME_TO_SUC.items():
+        if key in fname.lower():
+            if target:
+                sql = f"SELECT id_suc||'|'||nombre||'|'||COALESCE(localidad,'') FROM app.sucursal WHERE lower(nombre)=lower('{target}') LIMIT 1;"
+                out = psql_c(sql, env)
+                if out:
+                    p = out.split("|")
+                    return {"id_suc": int(p[0]), "nombre": p[1], "localidad": p[2]}
+            else:
+                sql = "SELECT id_suc||'|'||nombre||'|'||COALESCE(localidad,'') FROM app.sucursal WHERE lower(localidad)='yerba buena' ORDER BY id_suc LIMIT 1;"
+                out = psql_c(sql, env)
+                if out:
+                    p = out.split("|")
+                    return {"id_suc": int(p[0]), "nombre": p[1], "localidad": p[2]}
 
-            if not (suc and prod and cat and fam and cant is not None):
-                # fila inválida -> salteamos
-                continue
-            out.append({
-                "sucursal": suc,
-                "fecha_emision": fecha,  # puede ser None -> se pone NOW() al insertar pedido
-                "dni_empleado": dni_emp,
-                "dni_admin": dni_adm,
-                "producto": prod,
-                "categoria": cat,
-                "familia": fam,
-                "cantidad": cant
-            })
-        return out
+    # 3) con encargado y admin activos
+    sql = """
+    SELECT s.id_suc||'|'||s.nombre||'|'||COALESCE(s.localidad,'')
+    FROM app.sucursal s
+    WHERE EXISTS (
+        SELECT 1 FROM app.usuario u JOIN app.empleado e USING (dni)
+        WHERE u.id_suc=s.id_suc AND u.activo AND e.es_encargado
+    )
+    AND EXISTS (
+        SELECT 1 FROM app.usuario u JOIN app.administrador a USING (dni)
+        WHERE u.id_suc=s.id_suc AND u.activo
+    )
+    ORDER BY s.id_suc LIMIT 1;
+    """
+    out = psql_c(sql, env)
+    if out:
+        p = out.split("|")
+        return {"id_suc": int(p[0]), "nombre": p[1], "localidad": p[2]}
 
-# --- Helpers DB lookups / upserts
-def fetch_map(conn, sql, key_idx=0, val_idx=1) -> Dict:
-    with conn.cursor() as cur:
-        cur.execute(sql)
-        rows = cur.fetchall()
-    return {rows[i][key_idx]: rows[i][val_idx] for i in range(len(rows))}
+    # 4) cualquiera
+    out = psql_c("SELECT id_suc||'|'||nombre||'|'||COALESCE(localidad,'') FROM app.sucursal ORDER BY id_suc LIMIT 1;", env)
+    if out:
+        p = out.split("|")
+        return {"id_suc": int(p[0]), "nombre": p[1], "localidad": p[2]}
 
-def ensure_sucursales(conn, nombres: List[str]) -> Dict[str,int]:
-    # Insert sucursales con dirección inline dummy si no existen
-    vals = sorted(set([n for n in nombres if n]))
-    if not vals: return {}
-    with conn.cursor() as cur:
-        execute_values(
-            cur,
-            """
-            INSERT INTO app.sucursal (nombre, calle, numero, piso, depto, localidad, cp)
-            VALUES %s
-            ON CONFLICT DO NOTHING;
-            """,
-            [(n, f"Av. {n}", 1, None, None, n, "0000") for n in vals]
+    return None
+
+def pick_emp_admin(env, id_suc):
+    # encargado activo
+    sql = f"""
+    SELECT u.dni FROM app.usuario u JOIN app.empleado e ON e.dni=u.dni
+    WHERE u.id_suc={id_suc} AND u.activo AND e.es_encargado LIMIT 1;
+    """
+    dni_emp = psql_c(sql, env) or None
+    if not dni_emp:
+        sql = f"""
+        SELECT u.dni FROM app.usuario u JOIN app.empleado e ON e.dni=u.dni
+        WHERE u.id_suc={id_suc} AND u.activo LIMIT 1;
+        """
+        dni_emp = psql_c(sql, env) or None
+    if not dni_emp:
+        dni_emp = psql_c("SELECT u.dni FROM app.usuario u JOIN app.empleado e ON e.dni=u.dni WHERE u.activo LIMIT 1;", env) or None
+
+    # admin activo
+    sql = f"""
+    SELECT u.dni FROM app.usuario u JOIN app.administrador a ON a.dni=u.dni
+    WHERE u.id_suc={id_suc} AND u.activo LIMIT 1;
+    """
+    dni_adm = psql_c(sql, env) or None
+    if not dni_adm:
+        dni_adm = psql_c("SELECT u.dni FROM app.usuario u JOIN app.administrador a ON a.dni=u.dni WHERE u.activo LIMIT 1;", env) or None
+
+    return (dni_emp.strip() if dni_emp else None, dni_adm.strip() if dni_adm else None)
+
+def ensure_proveedor(env):
+    dni = psql_c("SELECT dni FROM app.proveedor LIMIT 1;", env)
+    if dni: return dni.strip()
+    # crear uno rápido
+    sql = """
+    WITH any_suc AS (SELECT id_suc FROM app.sucursal LIMIT 1)
+    INSERT INTO app.usuario(dni,nombre,id_suc,activo)
+    SELECT '30-00000000-0','Proveedor Default', id_suc, true FROM any_suc
+    ON CONFLICT (dni) DO NOTHING;
+    INSERT INTO app.proveedor(dni) VALUES ('30-00000000-0') ON CONFLICT (dni) DO NOTHING;
+    """
+    psql_c(sql, env)
+    return "30-00000000-0"
+
+def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
+    """
+    Devuelve: (ruta_csv_normalizado, sucursal_unica_si_apl, primera_fecha_valida)
+    """
+    with in_path.open("r", encoding="utf-8", newline="") as fi:
+        r = csv.DictReader(fi)
+        headers = [h for h in (r.fieldnames or [])]
+        lower = [h.lower().strip() for h in headers]
+
+        # map rápido
+        alias = {}
+        mapping = {
+            "id": {"id","id_producto","producto_id"},
+            "producto": {"producto","nombre_producto","item","nombre"},
+            "categoria": {"categoria","cat"},
+            "familia": {"familia","fam"},
+            "sucursal": {"sucursal"},
+            "cantidad": {"cantidad","cant","qty","unidades"},
+            "fecha": {"fecha_emision","fecha","timestamp"},
+            "dni_empleado": {"dni_empleado","empleado_dni","dni_emp","dniemp"},
+            "dni_admin": {"dni_admin","admin_dni","dni_adm","dniadm"},
+        }
+        for i,h in enumerate(lower):
+            for k,als in mapping.items():
+                if h in als and k not in alias:
+                    alias[k] = headers[i]
+
+        # Detectar sucursal única en CSV (si existiese columna)
+        suc_vals = set()
+        first_valid_fecha = None
+
+        # tmp = tempfile.NamedTemporaryFile(prefix="norm_", suffix=".csv", delete=False)
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="",
+            prefix="norm_", suffix=".csv", delete=False
         )
-    conn.commit()
-    # devolver mapa nombre->id_suc
-    return fetch_map(conn, "SELECT nombre, id_suc FROM app.sucursal;")
+        tmp_path = Path(tmp.name)
+        with tmp:
+            w = csv.DictWriter(tmp, fieldnames=["producto","categoria","familia","cantidad","fecha_emision","dni_empleado","dni_admin"])
+            w.writeheader()
+            fi.seek(0); r = csv.DictReader(fi)
+            for row in r:
+                # sucursal única?
+                if "sucursal" in alias:
+                    sval = (row.get(alias["sucursal"]) or "").strip()
+                    if sval: suc_vals.add(sval)
 
-def ensure_users(conn, dni_list: List[str], subtipo: str, suc_map: Dict[str,int], sample_suc: Optional[str]) -> None:
-    """
-    Crea usuarios y subtipo (empleado/administrador). Asigna id_suc de muestra (si disponible).
-    subtipo: 'empleado' | 'administrador'
-    """
-    dnivals = sorted(set([d for d in dni_list if d]))
-    if not dnivals: return
-    id_suc = suc_map.get(sample_suc) if sample_suc else None
-    with conn.cursor() as cur:
-        # usuarios
-        execute_values(
-            cur,
-            """
-            INSERT INTO app.usuario(dni, nombre, id_suc, activo)
-            VALUES %s
-            ON CONFLICT (dni) DO NOTHING;
-            """,
-            [(d, f"{subtipo.title()} {d}", id_suc, True) for d in dnivals]
-        )
-        # subtipo
-        if subtipo == "empleado":
-            execute_values(cur,
-                "INSERT INTO app.empleado(dni) VALUES %s ON CONFLICT (dni) DO NOTHING;",
-                [(d,) for d in dnivals]
-            )
-        elif subtipo == "administrador":
-            execute_values(cur,
-                "INSERT INTO app.administrador(dni) VALUES %s ON CONFLICT (dni) DO NOTHING;",
-                [(d,) for d in dnivals]
-            )
-    conn.commit()
+                # cantidad
+                if "cantidad" in alias:
+                    v = (row.get(alias["cantidad"]) or "").strip()
+                    qty = int(float(v)) if (v and is_num(v)) else 0
+                else:
+                    # sumar numéricas desconocidas
+                    qty = 0
+                    for col, val in row.items():
+                        if col and col.lower().strip() not in KNOWN and is_num(val):
+                            qty += int(float(val))
 
-def ensure_dimensiones(conn, cats: List[str], fams: List[str], productos: List[Tuple[str,str,str]]) -> None:
-    cats = sorted(set([c for c in cats if c]))
-    fams = sorted(set([f for f in fams if f]))
-    prods = sorted(set([(n,c,f) for (n,c,f) in productos if n and c and f]))
-    with conn.cursor() as cur:
-        if cats:
-            execute_values(cur,
-                "INSERT INTO app.categoria(nombre) VALUES %s ON CONFLICT (nombre) DO NOTHING;",
-                [(c,) for c in cats]
-            )
-        if fams:
-            execute_values(cur,
-                "INSERT INTO app.familia(nombre) VALUES %s ON CONFLICT (nombre) DO NOTHING;",
-                [(f,) for f in fams]
-            )
-        if prods:
-            # mapear ids
-            cur.execute("SELECT id_categoria, nombre FROM app.categoria;")
-            cat_map = {name:id_ for (id_, name) in cur.fetchall()}
-            cur.execute("SELECT id_familia, nombre FROM app.familia;")
-            fam_map = {name:id_ for (id_, name) in cur.fetchall()}
-            to_ins = []
-            for (n,c,f) in prods:
-                cid = cat_map.get(c)
-                fid = fam_map.get(f)
-                if cid and fid:
-                    to_ins.append((n, cid, fid))
-            if to_ins:
-                execute_values(cur,
-                    """
-                    INSERT INTO app.producto(nombre, id_categoria, id_familia)
-                    VALUES %s
-                    ON CONFLICT ON CONSTRAINT uq_producto DO NOTHING;
-                    """,
-                    to_ins
-                )
-    conn.commit()
+                if qty <= 0:
+                    continue
 
-def get_ids_maps(conn):
-    with conn.cursor() as cur:
-        cur.execute("SELECT nombre, id_suc FROM app.sucursal;")
-        suc_map = {n: i for (n,i) in cur.fetchall()}
-        cur.execute("SELECT nombre, id_categoria FROM app.categoria;")
-        cat_map = {n: i for (n,i) in cur.fetchall()}
-        cur.execute("SELECT nombre, id_familia FROM app.familia;")
-        fam_map = {n: i for (n,i) in cur.fetchall()}
-        cur.execute("SELECT nombre, id_categoria, id_familia, id_producto FROM app.vw_producto_resolved;")
-        # si no existe vista, hacemos consulta directa más abajo
-    return suc_map, cat_map, fam_map
+                # fecha
+                ftxt = (row.get(alias["fecha"]) or "").strip() if "fecha" in alias else ""
+                dt = parse_fecha(ftxt)
+                if dt and not first_valid_fecha:
+                    first_valid_fecha = dt
 
-def ensure_pedido_and_get_id(conn, id_suc: int, fecha_emision: Optional[str], dni_empleado: Optional[str], dni_admin: Optional[str]) -> int:
-    """
-    Busca pedido por (id_suc, fecha_emision, dni_empleado, dni_admin).
-    Si no existe, inserta y devuelve id_pedido.
-    """
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT id_pedido
-            FROM app.pedido
-            WHERE id_suc = %s
-              AND (fecha_emision = COALESCE(%s, fecha_emision))
-              AND (dni_empleado IS NOT DISTINCT FROM %s)
-              AND (dni_admin    IS NOT DISTINCT FROM %s)
-            LIMIT 1;
-        """, (id_suc, fecha_emision, dni_empleado, dni_admin))
-        row = cur.fetchone()
-        if row:
-            return row[0]
-        # Insertar
-        if fecha_emision is None:
-            cur.execute("""
-                INSERT INTO app.pedido(id_suc, dni_empleado, dni_admin)
-                VALUES (%s, %s, %s)
-                RETURNING id_pedido;
-            """, (id_suc, dni_empleado, dni_admin))
-        else:
-            cur.execute("""
-                INSERT INTO app.pedido(id_suc, fecha_emision, dni_empleado, dni_admin)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id_pedido;
-            """, (id_suc, fecha_emision, dni_empleado, dni_admin))
-        pid = cur.fetchone()[0]
-        conn.commit()
-        return pid
+                w.writerow({
+                    "producto": (row.get(alias.get("producto",""), "") or "").strip(),
+                    "categoria": (row.get(alias.get("categoria",""), "") or "").strip(),
+                    "familia": (row.get(alias.get("familia",""), "") or "").strip(),
+                    "cantidad": qty,
+                    "fecha_emision": dt.strftime("%Y-%m-%d %H:%M:%S") if dt else "",
+                    "dni_empleado": (row.get(alias.get("dni_empleado",""), "") or "").strip(),
+                    "dni_admin": (row.get(alias.get("dni_admin",""), "") or "").strip(),
+                })
+
+        suc_unique = list(suc_vals)[0] if len(suc_vals)==1 else None
+        return tmp_path, suc_unique, first_valid_fecha
 
 def main():
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", required=True, help="Ruta al CSV de pedidos (filas a nivel ítem)")
-    args = ap.parse_args()
+    load_dotenv(override=True)
+    db_url = os.getenv("SUPABASE_DB_URL")
+    if not db_url:
+        print("❌ Falta SUPABASE_DB_URL en .env")
+        sys.exit(1)
+    env = os.environ.copy()
+    env["PGCONNECT_TIMEOUT"] = "10"
+    env["PGOPTIONS"] = ""  # limpio por si acaso
+    env["SUPABASE_DB_URL"] = db_url  # psql admite la URL directa
 
-    rows = read_rows(args.csv)
-    if not rows:
-        print("No hay filas válidas en el CSV.")
+    files = sorted(glob.glob(str(CSV_IN / "*.csv")))
+    if not files:
+        print(f"⚠️ No encontré CSV en {CSV_IN}")
         return
 
-    conn = get_conn()
-    try:
-        # 1) Sucursales
-        sucursales = [r["sucursal"] for r in rows]
-        suc_map = ensure_sucursales(conn, sucursales)
+    proveedor = ensure_proveedor(env)
 
-        # 2) Usuarios (si hay DNIs)
-        emp_dnIs = [r["dni_empleado"] for r in rows if r.get("dni_empleado")]
-        adm_dnIs = [r["dni_admin"]    for r in rows if r.get("dni_admin")]
-        sample_suc = rows[0]["sucursal"] if rows else None
-        ensure_users(conn, emp_dnIs, "empleado", suc_map, sample_suc)
-        ensure_users(conn, adm_dnIs, "administrador", suc_map, sample_suc)
+    total_ped, total_items, total_ent = 0, 0, 0
 
-        # 3) Dimensiones y productos
-        cats = [r["categoria"] for r in rows]
-        fams = [r["familia"]   for r in rows]
-        prods = [(r["producto"], r["categoria"], r["familia"]) for r in rows]
-        ensure_dimensiones(conn, cats, fams, prods)
+    for p in files:
+        in_path = Path(p)
+        fname = in_path.name
+        n = get_num_from_fname(fname)
+        estado = estado_por_num(n)
 
-        # 4) Mapas finales para resolver IDs
-        with conn.cursor() as cur:
-            cur.execute("SELECT nombre, id_suc FROM app.sucursal;")
-            suc_map = {n: i for (n,i) in cur.fetchall()}
-            cur.execute("SELECT nombre, id_categoria FROM app.categoria;")
-            cat_map = {n: i for (n,i) in cur.fetchall()}
-            cur.execute("SELECT nombre, id_familia FROM app.familia;")
-            fam_map = {n: i for (n,i) in cur.fetchall()}
-            cur.execute("""
-                SELECT p.nombre, c.nombre, f.nombre, p.id_producto
-                FROM app.producto p
-                JOIN app.categoria c ON c.id_categoria = p.id_categoria
-                JOIN app.familia   f ON f.id_familia   = p.id_familia;
-            """)
-            prod_map = {(pn, cn, fn): pid for (pn,cn,fn,pid) in cur.fetchall()}
+        # 1) Normalizar CSV
+        norm_path, suc_csv, first_fecha = normalize_csv(in_path)
 
-        # 5) Insertar cabeceras (y recolectar ids) + preparar contiene
-        contiene_rows = []
-        for r in rows:
-            id_suc = suc_map.get(r["sucursal"])
-            if not id_suc:
-                continue
-            pid = ensure_pedido_and_get_id(conn, id_suc, r["fecha_emision"], r["dni_empleado"], r["dni_admin"])
-            pid_prod = prod_map.get((r["producto"], r["categoria"], r["familia"]))
-            if pid_prod:
-                contiene_rows.append((pid_prod, pid, r["cantidad"]))
+        # 2) Resolver sucursal
+        suc = infer_sucursal(env, fname, suc_csv)
+        if not suc:
+            print(f"⚠️ {fname}: no pude resolver sucursal. Salto.")
+            continue
 
-        # 6) Insert masivo a contiene (ignora duplicados por PK)
-        if contiene_rows:
-            with conn.cursor() as cur:
-                execute_values(
-                    cur,
-                    """
-                    INSERT INTO app.contiene(id_producto, id_pedido, cantidad)
-                    VALUES %s
-                    ON CONFLICT DO NOTHING;
-                    """,
-                    contiene_rows,
-                    page_size=1000
-                )
-            conn.commit()
+        # 3) Empleado/Administrador
+        dni_emp, dni_adm = pick_emp_admin(env, suc["id_suc"])
+        if not dni_emp or not dni_adm:
+            print(f"⚠️ {fname}: no hay empleado/admin elegible. Salto.")
+            continue
 
-        print(f"Pedidos insertados/ubicados: {len(set([c[1] for c in contiene_rows]))}")
-        print(f"Ítems insertados/ignorados por conflicto: {len(contiene_rows)}")
+        # 4) Crear pedido y obtener id
+        fecha_sql = first_fecha.strftime("%Y-%m-%d %H:%M:%S") if first_fecha else None
+        sql_ins = f"""
+        WITH ins AS (
+          INSERT INTO app.pedido (id_suc, estado, fecha_emision, dni_empleado, dni_admin)
+          VALUES (
+            {suc['id_suc']},
+            '{estado}',
+            {f"'{fecha_sql}'::timestamp" if fecha_sql else "NOW()"},
+            '{dni_emp}',
+            '{dni_adm}'
+          )
+          RETURNING id_pedido
+        )
+        SELECT id_pedido::text FROM ins;
+        """
+        id_pedido = psql_c(sql_ins, env).strip()
+        if not id_pedido:
+            print(f"⚠️ {fname}: no pude crear pedido. Salto.")
+            continue
+        total_ped += 1
 
-    finally:
-        conn.close()
+        # 5) Cargar items: \copy -> staging tmp -> insert contiene
+        tmp_table = f"staging._tmp_items_{id_pedido}"
+        sql_batch = f"""
+        CREATE SCHEMA IF NOT EXISTS staging;
+        DROP TABLE IF EXISTS {tmp_table};
+        CREATE TABLE {tmp_table}(
+          producto TEXT, categoria TEXT, familia TEXT,
+          cantidad INTEGER, fecha_emision TIMESTAMP,
+          dni_empleado TEXT, dni_admin TEXT
+        );
+        """
+        # ejecutar batch de creación
+        with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False, encoding="utf-8") as fsql:
+            fsql.write(sql_batch)
+            tmp_sql_path = fsql.name
+        psql_f(tmp_sql_path, env)
+        os.unlink(tmp_sql_path)
+
+        # # \copy del CSV normalizado
+        # cmd_copy = [
+        #     PSQL, env["SUPABASE_DB_URL"], "-v", "ON_ERROR_STOP=1",
+        #     "-c", f"\\copy {tmp_table} FROM '{str(norm_path).replace('\\','/')}' CSV HEADER"
+        # ]
+        # sh(cmd_copy, env)
+        # \copy del CSV normalizado
+        csv_path = str(norm_path).replace("\\", "/")
+        cmd_copy = [
+            PSQL, env["SUPABASE_DB_URL"], "-v", "ON_ERROR_STOP=1",
+            "-c", f"\\copy {tmp_table} FROM '{csv_path}' CSV HEADER"
+        ]
+        sh(cmd_copy, env)
+
+
+        # Insertar solo las filas con cantidad>0 y producto/cat válidos
+        sql_cont = f"""
+        INSERT INTO app.contiene(id_producto, id_pedido, cantidad)
+        SELECT p.id_producto, {id_pedido}::int, t.cantidad
+        FROM {tmp_table} t
+        JOIN app.categoria c ON c.nombre = TRIM(t.categoria)
+        LEFT JOIN app.familia f ON f.nombre = TRIM(t.familia)
+        JOIN app.producto p ON lower(p.nombre)=lower(TRIM(t.producto))
+                           AND p.id_categoria=c.id_categoria
+                           AND (f.id_familia IS NULL OR p.id_familia=f.id_familia)
+        WHERE COALESCE(t.cantidad,0) > 0;
+        SELECT COUNT(*)::text FROM {tmp_table};
+        """
+        inserted = psql_c(sql_cont, env).strip()
+        try:
+            total_items += int(inserted or "0")
+        except:
+            pass
+
+        # cleanup staging
+        psql_c(f"DROP TABLE IF EXISTS {tmp_table};", env)
+        try: os.unlink(norm_path)
+        except: pass
+
+        # 6) Si estado entregado, crear app.entrega
+        if estado == "entregado":
+            sql_ent = f"""
+            INSERT INTO app.entrega(id_pedido, dni_proveedor, dni_empleado)
+            VALUES ({id_pedido}, '{proveedor}', '{dni_emp}')
+            ON CONFLICT DO NOTHING;
+            """
+            psql_c(sql_ent, env)
+            total_ent += 1
+
+        print(f"✔ {fname}: pedido {id_pedido}  estado={estado}  suc='{suc['nombre']}'")
+
+    print(f"\nResumen → pedidos: {total_ped}  ítems aprox: {total_items}  entregas: {total_ent}")
 
 if __name__ == "__main__":
     main()
