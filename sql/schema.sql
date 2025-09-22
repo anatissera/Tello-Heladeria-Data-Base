@@ -9,25 +9,27 @@ BEGIN
 END $$;
 
 
+-- creería que no necesitamos tabla dirección porque solo lo tiene sucursal.
+
 -- TABLA DIRECCION
 
 CREATE TABLE app.direccion (
-  id_direccion INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  ID_direccion INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   calle        TEXT NOT NULL,
   numero       INTEGER CHECK (numero > 0),
   piso         TEXT,              
   depto        TEXT,
   localidad    TEXT NOT NULL,
-  cp           TEXT,
-  UNIQUE (calle, numero, piso, depto, localidad, cp) -- para no duplicados ta ok?
+  cp           TEXT NOT NULL,
+  UNIQUE (calle, numero, piso, depto, localidad, cp) -- para no duplicados ta ok? -> yo opino que sí pueden vivir en el mismo departamento, capaz son los padres de Athina que viven en la misma casa no sé.
 );
 
 -- TABLA SUCURSAL
 
 CREATE TABLE app.sucursal (
-  id_suc        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  ID_suc        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nombre        TEXT NOT NULL,
-  id_direccion INTEGER REFERENCES app.direccion(id_direccion) 
+  ID_direccion INTEGER REFERENCES app.direccion(ID_direccion) 
                 ON UPDATE CASCADE 
                 ON DELETE RESTRICT
 );
@@ -37,11 +39,11 @@ CREATE INDEX ON app.sucursal(id_direccion); -- para los joisn con id_Dire
 -- TABLA USUARIO
 
 CREATE TABLE app.usuario(
-    dni                 TEXT PRIMARY KEY,
+    DNI                 TEXT PRIMARY KEY,
     nombre              TEXT NOT NULL,
     fecha_nacimiento    DATE,
     mail                TEXT UNIQUE,
-    id_suc              INTEGER REFERENCES app.sucursal(id_suc) 
+    ID_suc              INTEGER REFERENCES app.sucursal(ID_suc) 
                         ON UPDATE CASCADE 
                         ON DELETE RESTRICT,
     activo              BOOLEAN NOT NULL DEFAULT TRUE
@@ -51,20 +53,20 @@ CREATE INDEX ON app.usuario(id_suc);
 -- SUBTIPOS DE USUARIOS
 
 CREATE TABLE app.proveedor (
-    dni     TEXT PRIMARY KEY REFERENCES app.usuario(dni) 
+    DNI     TEXT PRIMARY KEY REFERENCES app.usuario(DNI) 
             ON UPDATE CASCADE 
             ON DELETE CASCADE
 );
 
 CREATE TABLE app.empleado(
-    dni     TEXT PRIMARY KEY REFERENCES app.usuario(dni) 
+    DNI     TEXT PRIMARY KEY REFERENCES app.usuario(DNI) 
             ON UPDATE CASCADE 
-            ON DELETE CASCADE
+            ON DELETE CASCADE,
     es_encargado    BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE app.administrador(
-    dni     TEXT PRIMARY KEY REFERENCES app.usuario(dni) 
+    DNI     TEXT PRIMARY KEY REFERENCES app.usuario(DNI) 
             ON UPDATE CASCADE 
             ON DELETE CASCADE
 );
@@ -73,75 +75,88 @@ CREATE TABLE app.administrador(
 
 -- nose si conviene ids by default si es que queremos usar los ids ya asignados o no 
 CREATE TABLE app.categoria (
-    id_categoria INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ID_categoria INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nombre TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE app.familia (
-    id_familia INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ID_familia INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nombre TEXT NOT NULL UNIQUE
 );
 
 
 CREATE TABLE app.producto (
-  id_producto  INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  ID_producto  INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nombre       TEXT NOT NULL,
-  id_categoria INTEGER NOT NULL
-                REFERENCES app.categoria(id_categoria)
+  ID_categoria INTEGER NOT NULL
+                REFERENCES app.categoria(ID_categoria)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT, 
-  id_familia   INTEGER NOT NULL
-                REFERENCES app.familia(id_familia)
+  ID_familia   INTEGER NOT NULL
+                REFERENCES app.familia(ID_familia)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT,
-    CONSTRAINT uq_producto UNIQUE (nombre, id_categoria, id_familia)
+    CONSTRAINT uq_producto UNIQUE (nombre, ID_categoria, ID_familia)
 );
 
 
-CREATE INDEX ON app.producto(id_categoria);
-CREATE INDEX ON app.producto(id_familia);
+CREATE INDEX ON app.producto(ID_categoria);
+CREATE INDEX ON app.producto(ID_familia);
 
 
 CREATE TABLE app.pedido (
-  id_pedido     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  ID_pedido     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   estado        app.pedido_estado NOT NULL DEFAULT 'emitido',
   fecha_emision TIMESTAMP NOT NULL DEFAULT now(),
-  id_suc        INTEGER NOT NULL
-                REFERENCES app.sucursal(id_suc)
+  ID_suc        INTEGER NOT NULL
+                REFERENCES app.sucursal(ID_suc)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT,       
-  dni_empleado  TEXT
-                REFERENCES app.empleado(dni)
+  DNI_empleado  TEXT
+                REFERENCES app.empleado(DNI)
                 ON UPDATE CASCADE
                 ON DELETE SET NULL,       -- si se va un empleado, guardo el pedido ig
-  dni_admin     TEXT
-                REFERENCES app.administrador(dni)
+  DNI_admin     TEXT
+                REFERENCES app.administrador(DNI)
                 ON UPDATE CASCADE
                 ON DELETE SET NULL
 );
-
 
 CREATE INDEX ON app.pedido(id_suc);
 CREATE INDEX ON app.pedido(dni_empleado);
 
 
 CREATE TABLE app.entrega (
-  id_pedido       INTEGER PRIMARY KEY
-                  REFERENCES app.pedido(id_pedido)
+  ID_pedido       INTEGER PRIMARY KEY
+                  REFERENCES app.pedido(ID_pedido)
                   ON UPDATE CASCADE
                   ON DELETE CASCADE,     
-  dni_proveedor   TEXT NOT NULL
-                  REFERENCES app.proveedor(dni)
+  DNI_proveedor   TEXT NOT NULL
+                  REFERENCES app.proveedor(DNI)
                   ON UPDATE CASCADE
                   ON DELETE RESTRICT,     
-  dni_empleado    TEXT
-                  REFERENCES app.empleado(dni)
+  DNI_empleado    TEXT
+                  REFERENCES app.empleado(DNI)
                   ON UPDATE CASCADE
                   ON DELETE SET NULL,     
   fecha_recepcion TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE INDEX ON app.entrega(dni_proveedor);
+CREATE INDEX ON app.entrega(DNI_proveedor);
 
 
--- NOSE si hay que hacer una tabla de contiene ??
+-- Relación Contiene
+
+CREATE TABLE app.contiene (
+    id_producto INTEGER NOT NULL
+                REFERENCES app.producto(id_producto)
+                ON UPDATE CASCADE
+                ON DELETE RESTRICT,
+    id_pedido   INTEGER NOT NULL
+                REFERENCES app.pedido(id_pedido)
+                ON UPDATE CASCADE
+                ON DELETE CASCADE,
+    cantidad    INTEGER NOT NULL CHECK (cantidad > 0),
+    PRIMARY KEY (id_producto, id_pedido)
+);
+CREATE INDEX ON app.contiene(id_pedido);
