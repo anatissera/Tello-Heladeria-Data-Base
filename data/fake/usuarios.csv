@@ -1,0 +1,90 @@
+dni,nombre,fecha_nacimiento,mail,id_suc,activo,tipo,es_encargado
+79785602,Eloísa Salamanca Melero,1964-09-07,bonetsalome@example.net,1,True,empleado,True
+29564696,Eligio Santos Vergara,1974-12-30,gcazorla@example.net,1,True,empleado,True
+89381170,Genoveva Madrigal Mendizábal,1976-08-11,felisa54@example.net,1,True,empleado,True
+68469681,Nazario Alfaro Antón,1961-06-23,arcoslilia@example.com,1,True,empleado,False
+17371735,Adolfo Guerrero Donoso,1994-01-02,rvalbuena@example.net,1,True,empleado,False
+52740952,Angelina Nadal,1999-06-23,azaharcabanillas@example.com,1,True,empleado,False
+20511437,Jesusa Agustí Seco,2001-12-23,morcillotoni@example.net,1,True,empleado,False
+72649616,Eduardo Torralba Bauzà,1983-03-20,dalilatamarit@example.org,1,True,empleado,False
+99450044,Jesusa Riquelme Riba,1986-07-31,damian20@example.com,1,False,empleado,False
+15015854,Natalio Gallego Tello,1982-12-11,tristanmonreal@example.com,2,True,empleado,True
+97675101,Luisa Salcedo-Pareja,1968-09-12,vilma45@example.net,2,True,empleado,True
+29742613,Rosalva Muñoz Crespo,1986-04-17,calixto88@example.org,2,True,empleado,True
+71318358,Isabela Catalán,1981-09-06,ambar10@example.org,2,True,empleado,False
+82941873,Edelmiro Juliá Guitart,1972-10-18,emiliana98@example.net,2,True,empleado,False
+30065219,Gema del Catalá,1975-05-15,america86@example.org,2,True,empleado,False
+16943387,Albino José Ángel Bou Capdevila,1967-05-31,eric91@example.net,2,True,empleado,False
+78246241,Luis Ángel Alcolea Beltran,1960-04-22,calmazan@example.org,2,True,empleado,False
+81438843,Renata Solé Barrera,1962-05-10,bfalco@example.net,2,False,empleado,True
+59312302,Basilio Victorino Garzón Pineda,2001-03-08,rroda@example.net,2,False,empleado,True
+54844970,Oriana Giralt Canet,1977-03-01,pazrosado@example.net,2,False,empleado,False
+79377751,Reinaldo Roldan Palmer,2004-04-12,delgadomarisol@example.net,3,True,empleado,True
+20437753,Hortensia Rebeca Cabeza Antón,2003-04-26,mlerma@example.com,3,True,empleado,True
+94898723,Irma Gimeno Abascal,1992-07-16,bayonabaltasar@example.com,3,True,empleado,True
+81795608,Elpidio Leiva Pou,1965-06-04,victoriano84@example.org,3,True,empleado,False
+32492711,Maxi Josep Acuña Múgica,1971-03-03,yolanda39@example.com,3,True,empleado,False
+47425506,Marina del Baeza,1993-11-15,duilioenriquez@example.com,3,True,empleado,False
+44113068,Rosaura Taboada-Raya,2006-06-03,puertanico@example.org,3,True,empleado,False
+36072511,Leopoldo Nebot Zamora,1974-05-03,juan-jose00@example.org,3,True,empleado,False
+25880163,Cristóbal Larrañaga Sandoval,1995-06-25,elpidioarnau@example.org,3,False,empleado,False
+47661588,Roxana Requena Pujadas,1973-01-04,zaliaga@example.com,3,False,empleado,True
+18576326,Josefa Bertrán Calatayud,2007-06-10,maxicorbacho@example.com,4,True,empleado,True
+58821179,Jordi Ribes Berenguer,2002-10-18,eesteve@example.net,4,True,empleado,True
+51329718,Roque Dalmau Melero,1996-10-20,tlumbreras@example.org,4,True,empleado,True
+61499628,Espiridión Arco Alberdi,1969-05-22,tllorente@example.org,4,True,empleado,False
+7118336,Jenaro Valbuena-Pomares,1990-01-10,garayiris@example.net,4,True,empleado,False
+57863116,Reyes Téllez Torre,1984-04-29,vanesa31@example.org,4,True,empleado,False
+76969767,Lucio Ruano Castejón,1967-08-03,aristides67@example.com,4,True,empleado,False
+30317153,León Pont,1987-12-21,rosellmaria-luisa@example.net,4,True,empleado,False
+66618884,María Teresa Llorente Barco,1971-11-25,nnaranjo@example.net,4,False,empleado,False
+34016599,Roxana Marín-Pou,1980-10-17,guerrerocalista@example.org,4,False,empleado,False
+66875322,Javiera Aramburu Guillen,1992-11-17,csanchez@example.org,4,False,empleado,True
+39232243,Rocío Llorente Atienza,2000-05-20,benetadora@example.com,5,True,empleado,True
+55793883,Amando Casal-Guillen,1999-07-27,jose-angelsimo@example.com,5,True,empleado,True
+62518889,Ana Belén del Canales,1984-03-27,arceeugenio@example.com,5,True,empleado,True
+11656742,Buenaventura Talavera Carrasco,1970-05-20,simon83@example.org,5,True,empleado,False
+24048550,Efraín Pera Huertas,1987-05-29,cintia93@example.org,5,True,empleado,False
+54460300,Quique Barón Guijarro,1975-11-23,leonleonor@example.net,5,True,empleado,False
+81867220,Nicolasa Nydia Santamaría Fonseca,1978-10-08,ydiaz@example.net,5,True,empleado,False
+73927901,Eladio Casanovas Sanabria,2006-12-12,donatocalleja@example.com,5,True,empleado,False
+27502911,Tatiana del Navarrete,2005-06-23,bautistacorbacho@example.net,5,False,empleado,True
+11946177,Marcelino Jaén Solsona,1985-03-09,eustaquio80@example.com,5,False,empleado,True
+54839692,Azucena Benet-Lledó,1991-02-09,evita67@example.com,5,False,empleado,True
+44405983,Toribio Lamas Baena,1983-09-08,zelorza@example.org,6,True,empleado,True
+22953349,Eladio Medina Paredes,2002-07-28,rosalindalillo@example.org,6,True,empleado,True
+66611915,Antonio Saldaña Aznar,1968-01-20,rosuna@example.org,6,True,empleado,True
+87444500,Etelvina Mateo-Pera,2005-06-20,camila31@example.org,6,True,empleado,False
+64909635,Florentino Pelayo Vaquero Malo,1978-04-03,cadenaspaco@example.org,6,True,empleado,False
+19242096,Cándida Bernat Tomás,1961-10-04,floreslope@example.net,6,True,empleado,False
+80719219,Heriberto Quintero Francisco,1999-01-11,cristian36@example.net,6,True,empleado,False
+2340119,Rodrigo Trujillo,1999-03-01,davilapepe@example.com,6,True,empleado,False
+77629961,Roberto Vilanova Aguiló,2007-06-26,fugarte@example.org,6,False,empleado,False
+82029220,Ildefonso Francisco Javier Luján Beltrán,1997-08-18,anabel35@example.com,6,False,empleado,False
+54509877,Ricarda Garmendia Cabeza,1992-07-27,francisca77@example.com,7,True,empleado,True
+93498659,Belén Salmerón Menéndez,1987-06-16,beltrannoe@example.net,7,True,empleado,True
+42116105,Néstor Sala Albero,1961-10-11,barreraeliana@example.org,7,True,empleado,True
+68396861,Eugenia Flavia Villaverde Gras,1961-03-04,santiagoguiomar@example.com,7,True,empleado,False
+27855485,Marcelino Capdevila Casanova,2005-12-24,nayara34@example.net,7,True,empleado,False
+97663906,Oriana del Zamora,1980-06-25,rojasandres-felipe@example.net,7,True,empleado,False
+17551317,Jordana Cáceres Esteban,2006-09-25,krio@example.com,7,True,empleado,False
+61246420,David Briones-Morales,1961-07-05,teresitaherrero@example.com,7,True,empleado,False
+63153738,Ignacio Miró,1966-05-23,therrera@example.net,7,False,empleado,False
+61436036,Prudencia Sevilla Frías,1969-06-15,bastidaalfonso@example.net,7,False,empleado,False
+92787518,Jonatan Gregorio Palomino Pujol,1992-02-12,teodorosoto@example.org,8,True,empleado,True
+79015988,Ignacio del Sastre,1983-08-28,ygalvan@example.org,8,True,empleado,True
+70857057,Tania Teruel Benito,2001-12-10,maria-teresatoro@example.net,8,True,empleado,True
+91930520,Jordi Casas Armengol,2007-08-06,emiliahidalgo@example.com,8,True,empleado,False
+83229107,Imelda Bermúdez Alcántara,2007-03-08,juanitoamat@example.com,8,True,empleado,False
+57868831,Tere Nadal-Benito,1998-12-27,beatrizfernandez@example.com,8,True,empleado,False
+57283813,Calixta Soledad Duarte Cruz,2006-07-04,iniestamaximo@example.org,8,True,empleado,False
+78077943,Saturnina del Donaire,1979-12-05,leirebaeza@example.org,8,True,empleado,False
+98836075,Salomón Sureda Guitart,2002-03-13,clotildefrancisco@example.org,8,False,empleado,True
+33417158,Adrián de Diaz,1981-04-03,agueda98@example.net,7,True,administrador,False
+60691683,Montserrat Tello Carbonell,1998-04-17,maria-doloresaragon@example.com,7,True,administrador,False
+89338251,Sonia Cornejo Garcia,1969-01-18,trinidad54@example.net,7,True,administrador,False
+51105439,Concepción del Doménech,1963-10-28,hortensiasandoval@example.net,7,True,administrador,False
+71358435,Clotilde Zabaleta-Murillo,1972-08-31,segoviaalejandro@example.com,7,False,administrador,False
+37146170,Heliodoro Cecilio Bermejo Rocamora,1997-05-09,campoyflavio@example.net,7,True,proveedor,False
+82647125,Silvio Manu Cabrera Prada,1969-04-23,cchacon@example.net,7,True,proveedor,False
+83689574,Reina Lago Soria,1991-02-28,pmariscal@example.net,7,False,proveedor,False
