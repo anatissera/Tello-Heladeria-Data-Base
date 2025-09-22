@@ -8,32 +8,23 @@ BEGIN
   END IF;
 END $$;
 
-
--- creería que no necesitamos tabla dirección porque solo lo tiene sucursal.
-
--- TABLA DIRECCION
-
-CREATE TABLE app.direccion (
-  ID_direccion INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  calle        TEXT NOT NULL,
-  numero       INTEGER CHECK (numero > 0),
-  piso         TEXT,              
-  depto        TEXT,
-  localidad    TEXT NOT NULL,
-  cp           TEXT NOT NULL
-);
-
 -- TABLA SUCURSAL
 
 CREATE TABLE app.sucursal (
-  ID_suc        INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  nombre        TEXT NOT NULL,
-  ID_direccion INTEGER REFERENCES app.direccion(ID_direccion) 
-                ON UPDATE CASCADE 
-                ON DELETE RESTRICT
+  id_suc     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nombre     TEXT NOT NULL,
+  calle      TEXT NOT NULL,
+  numero     INTEGER CHECK (numero > 0),
+  piso       TEXT,
+  depto      TEXT,
+  localidad  TEXT NOT NULL,
+  cp         TEXT NOT NULL
 );
 
-CREATE INDEX ON app.sucursal(ID_direccion); -- para los joisn con ID_dir
+CREATE INDEX ON app.sucursal(localidad);
+-- Para evitar sucursales con mismo nombre y misma dirección:
+CREATE UNIQUE INDEX uq_sucursal_nombre_dir
+  ON app.sucursal (nombre, calle, numero, COALESCE(piso,''), COALESCE(depto,''), localidad, cp);
 
 -- TABLA USUARIO
 
