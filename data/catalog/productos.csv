@@ -1,4 +1,4 @@
-id_producto,nombre,familia,categoria
+ID,nombre,familia,categoria
 723,CHOCOLATE,chocolate, helado
 724,CHOCOLATE A LA CUBANA,chocolate, helado
 725,CHOCOLATE AMARGO,chocolate, helado
@@ -61,44 +61,44 @@ id_producto,nombre,familia,categoria
 757,MANGO,frutas, helado
 717,CHOCOTORTA,dulce de leche, helado
 766,TORTA BROWNIE,crema blanca, helado
-800, OMELETTE, , Tortas Heladas
-801, CLASICA AM/CHOC, , Tortas Heladas
-802, CLASICA VAI/ DL, , Tortas Heladas
-803, BOMBON , , Tortas Heladas
-804, PRIMAVERA, , Tortas Heladas
-805, DEL AMERICANA, , Tortas Heladas
-806, DEL DULCE D LECHE, , Tortas Heladas
-807, VERONA, , Tortas Heladas
-808, CHOCOOREO, , Tortas Heladas
-900, Bomba, , Tortas
-901, Chaja, , Tortas
-902, Imperial, , Tortas
-903, Maria Luisa, , Tortas
-904, Selva Negra, , Tortas
-905, Tropical, , Tortas
-600, Brownie, , Tartas
-601, Cabsha, , Tartas
-602, Higo, , Tartas
-603, Imperial Tarta, , Tartas
-604, Lemon Pie Tarta, , Tartas
-605, Maracuya Tarta, , Tartas
-606, Mousse, , Tartas
-607, Rocher, , Tartas
-608, Cheescake Tarta, , Tartas
-500, Clasica, , Paletas
-501, Tango, , Paletas
-502, Corazon, , Paletas
-503, Carita, , Paletas
-504, Pata, , Paletas
-505, Torta, , Paletas
-506, Chancho, , Paletas
-507, Cristal, , Paletas
-508, chocolatin, , Paletas
-509, Vaca Aurora, , Paletas
-510, Dona Banana Split, , Paletas
-511, Dona flan, , Paletas
-512, Hello Kitty, , Paletas
-513, Dubai, , Paletas
-400, Nutella, , Minitortas
-401, Dulccina, , Minitortas
-402, Cheescake DL/ Oreo, , Minitortas
+800, OMELETTE,, Tortas Heladas
+801, CLASICA AM/CHOC,, Tortas Heladas
+802, CLASICA VAI/ DL,, Tortas Heladas
+803, BOMBON ,, Tortas Heladas
+804, PRIMAVERA,, Tortas Heladas
+805, DEL AMERICANA,, Tortas Heladas
+806, DEL DULCE D LECHE,, Tortas Heladas
+807, VERONA,, Tortas Heladas
+808, CHOCOOREO,, Tortas Heladas
+900, Bomba,, Tortas
+901, Chaja,, Tortas
+902, Imperial,, Tortas
+903, Maria Luisa,, Tortas
+904, Selva Negra,, Tortas
+905, Tropical,, Tortas
+600, Brownie,, Tartas
+601, Cabsha,, Tartas
+602, Higo,, Tartas
+603, Imperial Tarta,, Tartas
+604, Lemon Pie Tarta,, Tartas
+605, Maracuya Tarta,, Tartas
+606, Mousse,, Tartas
+607, Rocher,, Tartas
+608, Cheescake Tarta,, Tartas
+500, Clasica,, Paletas
+501, Tango,, Paletas
+502, Corazon,, Paletas
+503, Carita,, Paletas
+504, Pata,, Paletas
+505, Torta,, Paletas
+506, Chancho,, Paletas
+507, Cristal,, Paletas
+508, chocolatin,, Paletas
+509, Vaca Aurora,, Paletas
+510, Dona Banana Split,, Paletas
+511, Dona flan,, Paletas
+512, Hello Kitty,, Paletas
+513, Dubai,, Paletas
+400, Nutella,, Minitortas
+401, Dulccina,, Minitortas
+402, Cheescake DL/ Oreo,, Minitortas

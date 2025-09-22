@@ -21,26 +21,28 @@ def main():
     cur = conn.cursor()
 
     for _, row in df.iterrows():
-        id_producto = int(row["id_producto"])
-        nombre_producto = row["nombre"].strip()
-        nombre_familia = row["familia"].strip()
-        nombre_categoria = row["categoria"].strip()
+        id_producto = int(row["ID"])   # en tu CSV la columna es "ID"
+        nombre_producto = str(row["nombre"]).strip()
 
-        # Buscar id_familia
-        cur.execute("SELECT id_familia FROM app.familia WHERE nombre = %s;", (nombre_familia,))
-        fam = cur.fetchone()
-        if not fam:
-            print(f"❌ Familia no encontrada: {nombre_familia} (producto {nombre_producto})")
-            continue
-        id_familia = fam[0]
+        # Familia (puede ser NULL)
+        id_familia = None
+        if pd.notna(row["familia"]):
+            cur.execute("SELECT id_familia FROM app.familia WHERE nombre = %s;", (row["familia"].strip(),))
+            fam = cur.fetchone()
+            if fam:
+                id_familia = fam[0]
+            else:
+                print(f"⚠️ Familia no encontrada: {row['familia']} (producto {nombre_producto})")
 
-        # Buscar id_categoria
-        cur.execute("SELECT id_categoria FROM app.categoria WHERE nombre = %s;", (nombre_categoria,))
-        cat = cur.fetchone()
-        if not cat:
-            print(f"❌ Categoría no encontrada: {nombre_categoria} (producto {nombre_producto})")
-            continue
-        id_categoria = cat[0]
+        # Categoría (puede ser NULL)
+        id_categoria = None
+        if pd.notna(row["categoria"]):
+            cur.execute("SELECT id_categoria FROM app.categoria WHERE nombre = %s;", (row["categoria"].strip(),))
+            cat = cur.fetchone()
+            if cat:
+                id_categoria = cat[0]
+            else:
+                print(f"⚠️ Categoría no encontrada: {row['categoria']} (producto {nombre_producto})")
 
         # Insertar producto con tu propio id_producto
         cur.execute(
