@@ -23,4 +23,3 @@ c["producto_norm"] = c["producto"].map(norm_txt)
 missing_by_name = m[~m["nombre_norm"].isin(c["producto_norm"])][["ID","nombre","familia"," categoria"]]
 print("\nFALTAN (por nombre normalizado):", len(missing_by_name))
 print(missing_by_name.to_string(index=False))
-

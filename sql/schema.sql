@@ -9,6 +9,7 @@ BEGIN
   END IF;
 END $$;
 
+-- SUCURSAL
 
 CREATE TABLE app.sucursal (
   id_suc     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -22,10 +23,11 @@ CREATE TABLE app.sucursal (
 );
 
 CREATE INDEX ON app.sucursal(localidad);
-
+-- Para evitar sucursales con mismo nombre y misma dirección:
 CREATE UNIQUE INDEX uq_sucursal_nombre_dir
   ON app.sucursal (nombre, calle, numero, COALESCE(piso,''), COALESCE(depto,''), localidad, cp);
 
+-- USUARIO
 
 CREATE TABLE app.usuario(
     DNI                 TEXT PRIMARY KEY,
@@ -39,6 +41,7 @@ CREATE TABLE app.usuario(
 );
 CREATE INDEX ON app.usuario(id_suc);
 
+-- SUBTIPOS DE USUARIOS
 
 CREATE TABLE app.proveedor (
     DNI     TEXT PRIMARY KEY REFERENCES app.usuario(DNI) 
@@ -59,6 +62,7 @@ CREATE TABLE app.administrador(
             ON DELETE CASCADE
 );
 
+-- CATEGORIA Y FAMILIA
 
 CREATE TABLE app.categoria (
     ID_categoria INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -70,8 +74,10 @@ CREATE TABLE app.familia (
     nombre TEXT NOT NULL UNIQUE
 );
 
+-- PRODUCTO
+
 CREATE TABLE app.producto (
-    id_producto  INTEGER PRIMARY KEY,  
+    id_producto  INTEGER PRIMARY KEY, 
     nombre       TEXT NOT NULL,
     id_categoria INTEGER NOT NULL
                 REFERENCES app.categoria(id_categoria)
@@ -86,6 +92,8 @@ CREATE TABLE app.producto (
 
 CREATE INDEX ON app.producto(id_categoria);
 CREATE INDEX ON app.producto(id_familia);
+
+-- PEDIDO
 
 CREATE TABLE app.pedido (
   ID_pedido     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -109,7 +117,7 @@ CREATE INDEX ON app.pedido(ID_suc);
 CREATE INDEX ON app.pedido(DNI_empleado);
 CREATE INDEX ON app.pedido(DNI_admin);
 
-
+-- ENTREGA
 
 CREATE TABLE app.entrega (
   ID_pedido       INTEGER PRIMARY KEY
@@ -130,6 +138,7 @@ CREATE TABLE app.entrega (
 CREATE INDEX ON app.entrega(DNI_proveedor);
 
 
+-- Relación CONTIENE
 
 CREATE TABLE app.contiene (
     ID_producto INTEGER NOT NULL
@@ -146,6 +155,7 @@ CREATE TABLE app.contiene (
 CREATE INDEX ON app.contiene(ID_pedido);
 
 
+-- Manejo de Inconsistencias --
 
 
 CREATE OR REPLACE FUNCTION app.chk_pedido_entregado()
@@ -154,6 +164,7 @@ DECLARE
   v_prov TEXT;
 BEGIN
   IF NEW.estado = 'entregado' THEN
+    -- si no existe entrega, se crea
     IF NOT EXISTS (SELECT 1 FROM app.entrega e WHERE e.id_pedido = NEW.id_pedido) THEN
       SELECT COALESCE((SELECT dni FROM app.proveedor LIMIT 1), '30-00000000-0')
         INTO v_prov;
@@ -209,14 +220,14 @@ EXECUTE FUNCTION app.chk_entrega_permitida();
 
 
 
--- marca automáticamente el pedido como "entregado" cuando se inserta o actualiza la entrega
+-- marca automáticamente el pedido como 'entregado' cuando se inserta o actualiza la entrega
 CREATE OR REPLACE FUNCTION app.auto_marcar_pedido_entregado()
 RETURNS TRIGGER AS $$
 BEGIN
   UPDATE app.pedido
      SET estado = 'entregado'
    WHERE ID_pedido = NEW.ID_pedido
-     AND estado <> 'entregado'; 
+     AND estado <> 'entregado'; -- solo si no está ya entregado
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -253,7 +264,7 @@ BEGIN
     IF NOT v_emp_ok THEN
       RAISE EXCEPTION 'Empleado % no es encargado activo de la sucursal %',
         NEW.dni_empleado, NEW.id_suc
-      USING ERRCODE = '23514'; 
+      USING ERRCODE = '23514'; -- check_violation
     END IF;
   END IF;
 
@@ -277,6 +288,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
 
 DROP TRIGGER IF EXISTS trg_pedido_validate_roles_ins ON app.pedido;
 DROP TRIGGER IF EXISTS trg_pedido_validate_roles_upd ON app.pedido;
