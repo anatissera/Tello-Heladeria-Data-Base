@@ -1,4 +1,5 @@
-CREATE SCHEMA IF NOT EXISTS app;
+DROP SCHEMA IF EXISTS app CASCADE;
+CREATE SCHEMA app;
 SET search_path TO app, public;
 
 DO $$
@@ -8,7 +9,6 @@ BEGIN
   END IF;
 END $$;
 
--- TABLA SUCURSAL
 
 CREATE TABLE app.sucursal (
   id_suc     INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -22,11 +22,10 @@ CREATE TABLE app.sucursal (
 );
 
 CREATE INDEX ON app.sucursal(localidad);
--- Para evitar sucursales con mismo nombre y misma dirección:
+
 CREATE UNIQUE INDEX uq_sucursal_nombre_dir
   ON app.sucursal (nombre, calle, numero, COALESCE(piso,''), COALESCE(depto,''), localidad, cp);
 
--- TABLA USUARIO
 
 CREATE TABLE app.usuario(
     DNI                 TEXT PRIMARY KEY,
@@ -40,7 +39,6 @@ CREATE TABLE app.usuario(
 );
 CREATE INDEX ON app.usuario(id_suc);
 
--- SUBTIPOS DE USUARIOS
 
 CREATE TABLE app.proveedor (
     DNI     TEXT PRIMARY KEY REFERENCES app.usuario(DNI) 
@@ -61,9 +59,7 @@ CREATE TABLE app.administrador(
             ON DELETE CASCADE
 );
 
--- CATEGORIA Y FAMILIA
 
--- nose si conviene ids by default si es que queremos usar los ids ya asignados o no 
 CREATE TABLE app.categoria (
     ID_categoria INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nombre TEXT NOT NULL UNIQUE
@@ -75,7 +71,7 @@ CREATE TABLE app.familia (
 );
 
 CREATE TABLE app.producto (
-    id_producto  INTEGER PRIMARY KEY,  -- lo cargás vos desde el CSV
+    id_producto  INTEGER PRIMARY KEY,  
     nombre       TEXT NOT NULL,
     id_categoria INTEGER NOT NULL
                 REFERENCES app.categoria(id_categoria)
@@ -134,7 +130,6 @@ CREATE TABLE app.entrega (
 CREATE INDEX ON app.entrega(DNI_proveedor);
 
 
--- Relación Contiene
 
 CREATE TABLE app.contiene (
     ID_producto INTEGER NOT NULL
@@ -151,22 +146,6 @@ CREATE TABLE app.contiene (
 CREATE INDEX ON app.contiene(ID_pedido);
 
 
--- Manejo de Inconsistencias
-
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM app.proveedor) THEN
-    -- Usa cualquier sucursal disponible para el usuario del proveedor default
-    INSERT INTO app.usuario(dni, nombre, id_suc, activo)
-    SELECT '30-00000000-0', 'Proveedor Default', id_suc, TRUE
-    FROM app.sucursal
-    LIMIT 1
-    ON CONFLICT (dni) DO NOTHING;
-
-    INSERT INTO app.proveedor(dni) VALUES ('30-00000000-0')
-    ON CONFLICT DO NOTHING;
-  END IF;
-END$$;
 
 
 CREATE OR REPLACE FUNCTION app.chk_pedido_entregado()
@@ -175,7 +154,6 @@ DECLARE
   v_prov TEXT;
 BEGIN
   IF NEW.estado = 'entregado' THEN
-    -- si no existe entrega, crearla
     IF NOT EXISTS (SELECT 1 FROM app.entrega e WHERE e.id_pedido = NEW.id_pedido) THEN
       SELECT COALESCE((SELECT dni FROM app.proveedor LIMIT 1), '30-00000000-0')
         INTO v_prov;
@@ -191,11 +169,11 @@ $$;
 
 
 DROP TRIGGER IF EXISTS trg_chk_pedido_entregado ON app.pedido;
+
 CREATE TRIGGER trg_chk_pedido_entregado
-BEFORE INSERT OR UPDATE OF estado ON app.pedido
+AFTER INSERT OR UPDATE OF estado ON app.pedido
 FOR EACH ROW
 EXECUTE FUNCTION app.chk_pedido_entregado();
-
 
 
 
@@ -238,7 +216,7 @@ BEGIN
   UPDATE app.pedido
      SET estado = 'entregado'
    WHERE ID_pedido = NEW.ID_pedido
-     AND estado <> 'entregado'; -- solo si no está ya entregado
+     AND estado <> 'entregado'; 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -261,7 +239,6 @@ DECLARE
   v_emp_ok  boolean;
   v_adm_ok  boolean;
 BEGIN
-  -- Permitir NULLs si tu modelo lo permite (ajusta si querés que sean obligatorios)
   IF NEW.dni_empleado IS NOT NULL THEN
     SELECT EXISTS (
       SELECT 1
@@ -276,7 +253,7 @@ BEGIN
     IF NOT v_emp_ok THEN
       RAISE EXCEPTION 'Empleado % no es encargado activo de la sucursal %',
         NEW.dni_empleado, NEW.id_suc
-      USING ERRCODE = '23514'; -- check_violation
+      USING ERRCODE = '23514'; 
     END IF;
   END IF;
 
@@ -301,7 +278,6 @@ BEGIN
 END;
 $$;
 
--- Trigger en pedido
 DROP TRIGGER IF EXISTS trg_pedido_validate_roles_ins ON app.pedido;
 DROP TRIGGER IF EXISTS trg_pedido_validate_roles_upd ON app.pedido;
 

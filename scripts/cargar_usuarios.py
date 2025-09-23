@@ -12,10 +12,8 @@ def main():
     if not db_url:
         raise SystemExit("No se encontró SUPABASE_DB_URL en el .env")
 
-    # Leer CSV
     df = pd.read_csv(CSV_FILE)
 
-    # Conexión a la base
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
 
@@ -29,14 +27,12 @@ def main():
         tipo = row["tipo"]
         es_encargado = bool(row["es_encargado"])
 
-        # Insertar en usuario
         cur.execute("""
             INSERT INTO app.usuario (dni, nombre, fecha_nacimiento, mail, id_suc, activo)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (dni) DO NOTHING;
         """, (dni, nombre, fecha_nac, mail, id_suc, activo))
 
-        # Subtipo según rol
         if tipo == "empleado":
             cur.execute("""
                 INSERT INTO app.empleado (dni, es_encargado)
@@ -59,7 +55,7 @@ def main():
     conn.commit()
     cur.close()
     conn.close()
-    print("✔ Usuarios cargados correctamente en la base")
+    print("Usuarios cargados correctamente en la base")
 
 if __name__ == "__main__":
     main()

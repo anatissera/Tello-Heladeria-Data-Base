@@ -1,4 +1,3 @@
-#Genero datos dummy para la tabla Contiene
 import pandas as pd
 import random
 

@@ -11,12 +11,11 @@ CSV_IN = ROOT / "data" / "processed"
 # Ruta a psql: se toma de la variable de entorno PSQL, del PATH, o se fija acá.
 PSQL   = os.environ.get("PSQL") or shutil.which("psql") or "psql"
 
-# Heurística nombre archivo -> sucursal
 FILENAME_TO_SUC = {
     "catam": "Catamarca",
     "sept": "Microcentro",
     "monteagudo": "Barrio Norte",
-    "yerba": None,  # localidad 'Yerba Buena'
+    "yerba": "Lobo de la Vega",
 }
 
 KNOWN = {
@@ -79,7 +78,6 @@ def get_num_from_fname(name):
     return int(m.group(1)) if m else None
 
 def infer_sucursal(env, fname, csv_single_suc):
-    # 1) CSV tiene una única sucursal
     if csv_single_suc:
         sql = f"""
         SELECT id_suc||'|'||nombre||'|'||COALESCE(localidad,'')
@@ -93,7 +91,6 @@ def infer_sucursal(env, fname, csv_single_suc):
             parts = out.split("|")
             return {"id_suc": int(parts[0]), "nombre": parts[1], "localidad": parts[2]}
 
-    # 2) por nombre archivo
     for key, target in FILENAME_TO_SUC.items():
         if key in fname.lower():
             if target:
@@ -109,7 +106,6 @@ def infer_sucursal(env, fname, csv_single_suc):
                     p = out.split("|")
                     return {"id_suc": int(p[0]), "nombre": p[1], "localidad": p[2]}
 
-    # 3) con encargado y admin activos
     sql = """
     SELECT s.id_suc||'|'||s.nombre||'|'||COALESCE(s.localidad,'')
     FROM app.sucursal s
@@ -128,7 +124,6 @@ def infer_sucursal(env, fname, csv_single_suc):
         p = out.split("|")
         return {"id_suc": int(p[0]), "nombre": p[1], "localidad": p[2]}
 
-    # 4) cualquiera
     out = psql_c("SELECT id_suc||'|'||nombre||'|'||COALESCE(localidad,'') FROM app.sucursal ORDER BY id_suc LIMIT 1;", env)
     if out:
         p = out.split("|")
@@ -137,7 +132,6 @@ def infer_sucursal(env, fname, csv_single_suc):
     return None
 
 def pick_emp_admin(env, id_suc):
-    # encargado activo
     sql = f"""
     SELECT u.dni FROM app.usuario u JOIN app.empleado e ON e.dni=u.dni
     WHERE u.id_suc={id_suc} AND u.activo AND e.es_encargado LIMIT 1;
@@ -152,7 +146,6 @@ def pick_emp_admin(env, id_suc):
     if not dni_emp:
         dni_emp = psql_c("SELECT u.dni FROM app.usuario u JOIN app.empleado e ON e.dni=u.dni WHERE u.activo LIMIT 1;", env) or None
 
-    # admin activo
     sql = f"""
     SELECT u.dni FROM app.usuario u JOIN app.administrador a ON a.dni=u.dni
     WHERE u.id_suc={id_suc} AND u.activo LIMIT 1;
@@ -166,7 +159,6 @@ def pick_emp_admin(env, id_suc):
 def ensure_proveedor(env):
     dni = psql_c("SELECT dni FROM app.proveedor LIMIT 1;", env)
     if dni: return dni.strip()
-    # crear uno rápido
     sql = """
     WITH any_suc AS (SELECT id_suc FROM app.sucursal LIMIT 1)
     INSERT INTO app.usuario(dni,nombre,id_suc,activo)
@@ -185,8 +177,6 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
         r = csv.DictReader(fi)
         headers = [h for h in (r.fieldnames or [])]
         lower = [h.lower().strip() for h in headers]
-
-        # map rápido
         alias = {}
         mapping = {
             "id": {"id","id_producto","producto_id"},
@@ -204,11 +194,9 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
                 if h in als and k not in alias:
                     alias[k] = headers[i]
 
-        # Detectar sucursal única en CSV (si existiese columna)
         suc_vals = set()
         first_valid_fecha = None
 
-        # tmp = tempfile.NamedTemporaryFile(prefix="norm_", suffix=".csv", delete=False)
         tmp = tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", newline="",
             prefix="norm_", suffix=".csv", delete=False
@@ -219,17 +207,14 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
             w.writeheader()
             fi.seek(0); r = csv.DictReader(fi)
             for row in r:
-                # sucursal única?
                 if "sucursal" in alias:
                     sval = (row.get(alias["sucursal"]) or "").strip()
                     if sval: suc_vals.add(sval)
 
-                # cantidad
                 if "cantidad" in alias:
                     v = (row.get(alias["cantidad"]) or "").strip()
                     qty = int(float(v)) if (v and is_num(v)) else 0
                 else:
-                    # sumar numéricas desconocidas
                     qty = 0
                     for col, val in row.items():
                         if col and col.lower().strip() not in KNOWN and is_num(val):
@@ -238,7 +223,6 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
                 if qty <= 0:
                     continue
 
-                # fecha
                 ftxt = (row.get(alias["fecha"]) or "").strip() if "fecha" in alias else ""
                 dt = parse_fecha(ftxt)
                 if dt and not first_valid_fecha:
@@ -261,16 +245,16 @@ def main():
     load_dotenv(override=True)
     db_url = os.getenv("SUPABASE_DB_URL")
     if not db_url:
-        print("❌ Falta SUPABASE_DB_URL en .env")
+        print("Falta SUPABASE_DB_URL en .env")
         sys.exit(1)
     env = os.environ.copy()
     env["PGCONNECT_TIMEOUT"] = "10"
-    env["PGOPTIONS"] = ""  # limpio por si acaso
-    env["SUPABASE_DB_URL"] = db_url  # psql admite la URL directa
+    env["PGOPTIONS"] = ""  
+    env["SUPABASE_DB_URL"] = db_url  
 
     files = sorted(glob.glob(str(CSV_IN / "*.csv")))
     if not files:
-        print(f"⚠️ No encontré CSV en {CSV_IN}")
+        print(f"No encontré CSV en {CSV_IN}")
         return
 
     proveedor = ensure_proveedor(env)
@@ -282,23 +266,18 @@ def main():
         fname = in_path.name
         n = get_num_from_fname(fname)
         estado = estado_por_num(n)
-
-        # 1) Normalizar CSV
         norm_path, suc_csv, first_fecha = normalize_csv(in_path)
 
-        # 2) Resolver sucursal
         suc = infer_sucursal(env, fname, suc_csv)
         if not suc:
             print(f"⚠️ {fname}: no pude resolver sucursal. Salto.")
             continue
 
-        # 3) Empleado/Administrador
         dni_emp, dni_adm = pick_emp_admin(env, suc["id_suc"])
         if not dni_emp or not dni_adm:
             print(f"⚠️ {fname}: no hay empleado/admin elegible. Salto.")
             continue
 
-        # 4) Crear pedido y obtener id
         fecha_sql = first_fecha.strftime("%Y-%m-%d %H:%M:%S") if first_fecha else None
         sql_ins = f"""
         WITH ins AS (
@@ -316,11 +295,10 @@ def main():
         """
         id_pedido = psql_c(sql_ins, env).strip()
         if not id_pedido:
-            print(f"⚠️ {fname}: no pude crear pedido. Salto.")
+            print(f"{fname}: no pude crear pedido. Salto.")
             continue
         total_ped += 1
 
-        # 5) Cargar items: \copy -> staging tmp -> insert contiene
         tmp_table = f"staging._tmp_items_{id_pedido}"
         sql_batch = f"""
         CREATE SCHEMA IF NOT EXISTS staging;
@@ -331,20 +309,12 @@ def main():
           dni_empleado TEXT, dni_admin TEXT
         );
         """
-        # ejecutar batch de creación
         with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False, encoding="utf-8") as fsql:
             fsql.write(sql_batch)
             tmp_sql_path = fsql.name
         psql_f(tmp_sql_path, env)
         os.unlink(tmp_sql_path)
 
-        # # \copy del CSV normalizado
-        # cmd_copy = [
-        #     PSQL, env["SUPABASE_DB_URL"], "-v", "ON_ERROR_STOP=1",
-        #     "-c", f"\\copy {tmp_table} FROM '{str(norm_path).replace('\\','/')}' CSV HEADER"
-        # ]
-        # sh(cmd_copy, env)
-        # \copy del CSV normalizado
         csv_path = str(norm_path).replace("\\", "/")
         cmd_copy = [
             PSQL, env["SUPABASE_DB_URL"], "-v", "ON_ERROR_STOP=1",
@@ -353,7 +323,6 @@ def main():
         sh(cmd_copy, env)
 
 
-        # Insertar solo las filas con cantidad>0 y producto/cat válidos
         sql_cont = f"""
         INSERT INTO app.contiene(id_producto, id_pedido, cantidad)
         SELECT p.id_producto, {id_pedido}::int, t.cantidad
@@ -372,12 +341,10 @@ def main():
         except:
             pass
 
-        # cleanup staging
         psql_c(f"DROP TABLE IF EXISTS {tmp_table};", env)
         try: os.unlink(norm_path)
         except: pass
 
-        # 6) Si estado entregado, crear app.entrega
         if estado == "entregado":
             sql_ent = f"""
             INSERT INTO app.entrega(id_pedido, dni_proveedor, dni_empleado)
@@ -387,7 +354,7 @@ def main():
             psql_c(sql_ent, env)
             total_ent += 1
 
-        print(f"✔ {fname}: pedido {id_pedido}  estado={estado}  suc='{suc['nombre']}'")
+        print(f"{fname}: pedido {id_pedido}  estado={estado}  suc='{suc['nombre']}'")
 
     print(f"\nResumen → pedidos: {total_ped}  ítems aprox: {total_items}  entregas: {total_ent}")
 

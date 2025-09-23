@@ -223,8 +223,7 @@ _DIET_BASE_MAP = {
 }
 def to_diet_candidate(raw_name: str, universe: Set[str]) -> Optional[str]:
     base = apply_alias(norm_txt(raw_name))
-    # casos especiales comunes en el raw:
-    base = re.sub(r"\s+al\s+agua$", "", base)           # "durazno al agua" -> "durazno"
+    base = re.sub(r"\s+al\s+agua$", "", base)          
     base = {"bananas": "banana"}.get(base, base)
     cand = _DIET_BASE_MAP.get(base, f"diet {base}")
     return cand if cand in universe else None
@@ -246,8 +245,6 @@ def parse_pedido_csv(
 
     for _, row in df.iterrows():
         cells = row.tolist()
-
-        # actualizar contexto de columnas según rótulos presentes en esta fila
         for j, c in enumerate(cells):
             lab = detect_section_label(c)
             if lab:
@@ -275,7 +272,6 @@ def parse_pedido_csv(
             elif ctx == "cajas":
                 nm_target = to_cajas_candidate(raw_token, universe_norm)
     
-            # fallback: best_match normal
             if not nm_target:
                 nm_target = best_match(raw_token, universe_norm)
 
