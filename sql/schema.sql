@@ -99,25 +99,20 @@ CREATE TABLE app.pedido (
                 REFERENCES app.sucursal(ID_suc)
                 ON UPDATE CASCADE
                 ON DELETE RESTRICT,       
-  DNI_empleado  TEXT
+  DNI_empleado  TEXT NOT NULL
                 REFERENCES app.empleado(DNI)
                 ON UPDATE CASCADE
-                ON DELETE SET NULL,       -- si se va un empleado, guardo el pedido ig
-  DNI_admin     TEXT
+                ON DELETE RESTRICT,       -- no puedo borrar empleado si tiene pedidos, lo desactivo no más, para eso el campo activo
+  DNI_admin     TEXT NOT NULL
                 REFERENCES app.administrador(DNI)
                 ON UPDATE CASCADE
-                ON DELETE SET NULL
+                ON DELETE RESTRICT
 );
 
 CREATE INDEX ON app.pedido(ID_suc);
 CREATE INDEX ON app.pedido(DNI_empleado);
 CREATE INDEX ON app.pedido(DNI_admin);
 
--- Integridad
-ALTER TABLE app.pedido
-  ADD CONSTRAINT ck_pedido_admin_segun_estado
-  CHECK (estado = 'emitido' OR DNI_admin IS NOT NULL);
--- no se puede pasar un pedido de "emitido" a otro estado sin haberle asignado un administrador
 
 
 CREATE TABLE app.entrega (
@@ -132,7 +127,7 @@ CREATE TABLE app.entrega (
   DNI_empleado    TEXT
                   REFERENCES app.empleado(DNI)
                   ON UPDATE CASCADE
-                  ON DELETE SET NULL,     
+                  ON DELETE RESTRICT,     
   fecha_recepcion TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -156,32 +151,51 @@ CREATE TABLE app.contiene (
 CREATE INDEX ON app.contiene(ID_pedido);
 
 
-
 -- Manejo de Inconsistencias
 
--- si un pedido cambia a estado "entregado" tiene que existir una fila asociada en entrega
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.proveedor) THEN
+    -- Usa cualquier sucursal disponible para el usuario del proveedor default
+    INSERT INTO app.usuario(dni, nombre, id_suc, activo)
+    SELECT '30-00000000-0', 'Proveedor Default', id_suc, TRUE
+    FROM app.sucursal
+    LIMIT 1
+    ON CONFLICT (dni) DO NOTHING;
+
+    INSERT INTO app.proveedor(dni) VALUES ('30-00000000-0')
+    ON CONFLICT DO NOTHING;
+  END IF;
+END$$;
+
+
 CREATE OR REPLACE FUNCTION app.chk_pedido_entregado()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+  v_prov TEXT;
 BEGIN
   IF NEW.estado = 'entregado' THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM app.entrega e
-      WHERE e.ID_pedido = NEW.ID_pedido
-    ) THEN
-      RAISE EXCEPTION 
-        'No se puede marcar como entregado el pedido %: falta la fila en entrega',
-        NEW.id_pedido;
+    -- si no existe entrega, crearla
+    IF NOT EXISTS (SELECT 1 FROM app.entrega e WHERE e.id_pedido = NEW.id_pedido) THEN
+      SELECT COALESCE((SELECT dni FROM app.proveedor LIMIT 1), '30-00000000-0')
+        INTO v_prov;
+
+      INSERT INTO app.entrega(id_pedido, dni_proveedor, dni_empleado)
+      VALUES (NEW.id_pedido, v_prov, NEW.dni_empleado)
+      ON CONFLICT DO NOTHING;
     END IF;
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- asociamos la función a la tabla pedido, para que corra antes de UPDATE o INSERT
+
+DROP TRIGGER IF EXISTS trg_chk_pedido_entregado ON app.pedido;
 CREATE TRIGGER trg_chk_pedido_entregado
-BEFORE INSERT OR UPDATE ON app.pedido
+BEFORE INSERT OR UPDATE OF estado ON app.pedido
 FOR EACH ROW
 EXECUTE FUNCTION app.chk_pedido_entregado();
+
 
 
 
@@ -234,3 +248,69 @@ AFTER INSERT OR UPDATE ON app.entrega
 FOR EACH ROW
 EXECUTE FUNCTION app.auto_marcar_pedido_entregado();
 
+
+
+-- validación
+
+-- asegura: dni_empleado ⇒ existe en app.empleado, activo = TRUE, es_encargado = TRUE y misma sucursal (u.id_suc = NEW.id_suc).
+--          dni_admin ⇒ existe en app.administrador, activo = TRUE y misma sucursal.
+
+CREATE OR REPLACE FUNCTION app.pedido_validate_roles()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+  v_emp_ok  boolean;
+  v_adm_ok  boolean;
+BEGIN
+  -- Permitir NULLs si tu modelo lo permite (ajusta si querés que sean obligatorios)
+  IF NEW.dni_empleado IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM app.usuario u
+      JOIN app.empleado e ON e.dni = u.dni
+      WHERE u.dni = NEW.dni_empleado
+        AND u.activo = TRUE
+        AND u.id_suc = NEW.id_suc
+        AND e.es_encargado = TRUE
+    ) INTO v_emp_ok;
+
+    IF NOT v_emp_ok THEN
+      RAISE EXCEPTION 'Empleado % no es encargado activo de la sucursal %',
+        NEW.dni_empleado, NEW.id_suc
+      USING ERRCODE = '23514'; -- check_violation
+    END IF;
+  END IF;
+
+  IF NEW.dni_admin IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM app.usuario u
+      JOIN app.administrador a ON a.dni = u.dni
+      WHERE u.dni = NEW.dni_admin
+        AND u.activo = TRUE
+        AND u.id_suc = NEW.id_suc
+    ) INTO v_adm_ok;
+
+    IF NOT v_adm_ok THEN
+      RAISE EXCEPTION 'Administrador % no es activo de la sucursal %',
+        NEW.dni_admin, NEW.id_suc
+      USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger en pedido
+DROP TRIGGER IF EXISTS trg_pedido_validate_roles_ins ON app.pedido;
+DROP TRIGGER IF EXISTS trg_pedido_validate_roles_upd ON app.pedido;
+
+CREATE TRIGGER trg_pedido_validate_roles_ins
+BEFORE INSERT ON app.pedido
+FOR EACH ROW
+EXECUTE FUNCTION app.pedido_validate_roles();
+
+CREATE TRIGGER trg_pedido_validate_roles_upd
+BEFORE UPDATE OF id_suc, dni_empleado, dni_admin ON app.pedido
+FOR EACH ROW
+EXECUTE FUNCTION app.pedido_validate_roles();

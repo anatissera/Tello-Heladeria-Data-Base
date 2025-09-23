@@ -75,7 +75,7 @@ def estado_por_num(n):
     return "emitido"
 
 def get_num_from_fname(name):
-    m = re.search(r'_(\d+)\.csv$', name.lower())
+    m = re.search(r'(\d+)\.csv$', name.lower())
     return int(m.group(1)) if m else None
 
 def infer_sucursal(env, fname, csv_single_suc):
