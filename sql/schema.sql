@@ -275,11 +275,11 @@ BEGIN
       JOIN app.administrador a ON a.dni = u.dni
       WHERE u.dni = NEW.dni_admin
         AND u.activo = TRUE
-        AND u.id_suc = NEW.id_suc
+        -- AND u.id_suc = NEW.id_suc ESTO ESTA MAL!! LO QUE QUEREMOS ES JUSTAMENTE Q EL ADMIN SEA SOLO DE LA CASA CENTRAL!!
     ) INTO v_adm_ok;
 
     IF NOT v_adm_ok THEN
-      RAISE EXCEPTION 'Administrador % no es activo de la sucursal %',
+      RAISE EXCEPTION 'Administrador % no está activo %',
         NEW.dni_admin, NEW.id_suc
       USING ERRCODE = '23514';
     END IF;
@@ -302,3 +302,45 @@ CREATE TRIGGER trg_pedido_validate_roles_upd
 BEFORE UPDATE OF id_suc, dni_empleado, dni_admin ON app.pedido
 FOR EACH ROW
 EXECUTE FUNCTION app.pedido_validate_roles();
+
+-- ==========================================
+-- ADMIN solo puede pertenecer a Casa Central
+-- ==========================================
+
+CREATE OR REPLACE FUNCTION app.chk_admin_central()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_suc_admin INTEGER;
+  v_cc INTEGER;
+BEGIN
+  -- Obtener la sucursal del usuario
+  SELECT id_suc INTO v_suc_admin
+  FROM app.usuario
+  WHERE dni = NEW.dni;
+
+  -- Buscar sucursal de "Casa Central"
+  SELECT id_suc INTO v_cc
+  FROM app.sucursal
+  WHERE nombre = 'Casa Central'
+  LIMIT 1;
+
+  IF v_cc IS NULL THEN
+    RAISE EXCEPTION 'No se encontró la sucursal Casa Central';
+  END IF;
+
+  -- Validar que el admin esté solo en Casa Central
+  IF v_suc_admin IS DISTINCT FROM v_cc THEN
+    RAISE EXCEPTION
+      'Un administrador solo puede pertenecer a Casa Central (id_suc = %)', v_cc;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- TRIGGER sobre tabla administrador
+DROP TRIGGER IF EXISTS trg_chk_admin_central ON app.administrador;
+CREATE TRIGGER trg_chk_admin_central
+BEFORE INSERT ON app.administrador
+FOR EACH ROW
+EXECUTE FUNCTION app.chk_admin_central();
