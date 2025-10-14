@@ -257,12 +257,12 @@ BEGIN
       JOIN app.empleado e ON e.dni = u.dni
       WHERE u.dni = NEW.dni_empleado
         AND u.activo = TRUE
-        AND u.id_suc = NEW.id_suc
+        AND u.id_suc = NEW.id_suc 
         AND e.es_encargado = TRUE
     ) INTO v_emp_ok;
 
     IF NOT v_emp_ok THEN
-      RAISE EXCEPTION 'Empleado % no es encargado activo de la sucursal %',
+      RAISE EXCEPTION 'Empleado % no es encargado activo %',
         NEW.dni_empleado, NEW.id_suc
       USING ERRCODE = '23514'; -- check_violation
     END IF;
@@ -304,9 +304,8 @@ FOR EACH ROW
 EXECUTE FUNCTION app.pedido_validate_roles();
 
 -- ==========================================
--- ADMIN solo puede pertenecer a Casa Central
+-- ADMIN solo puede pertenecer a Casa Central (Al momento de ser promovido)
 -- ==========================================
-
 CREATE OR REPLACE FUNCTION app.chk_admin_central()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -316,7 +315,7 @@ BEGIN
   -- Obtener la sucursal del usuario
   SELECT id_suc INTO v_suc_admin
   FROM app.usuario
-  WHERE dni = NEW.dni;
+  WHERE dni = NEW.dni; -- OJO: El DNI debe existir en app.usuario antes de insertar en app.administrador
 
   -- Buscar sucursal de "Casa Central"
   SELECT id_suc INTO v_cc
@@ -331,16 +330,58 @@ BEGIN
   -- Validar que el admin esté solo en Casa Central
   IF v_suc_admin IS DISTINCT FROM v_cc THEN
     RAISE EXCEPTION
-      'Un administrador solo puede pertenecer a Casa Central (id_suc = %)', v_cc;
+      'Un administrador solo puede pertenecer a Casa Central (id_suc = %). El usuario tiene ID_suc %.', v_cc, v_suc_admin;
   END IF;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- TRIGGER sobre tabla administrador
+-- TRIGGER sobre tabla administrador (OK, para cuando se añade un administrador)
 DROP TRIGGER IF EXISTS trg_chk_admin_central ON app.administrador;
 CREATE TRIGGER trg_chk_admin_central
 BEFORE INSERT ON app.administrador
 FOR EACH ROW
 EXECUTE FUNCTION app.chk_admin_central();
+
+-- ==========================================
+-- Admin solo puede tener ID_suc de Casa Central (Al momento de cambiar sucursal)
+-- ==========================================
+CREATE OR REPLACE FUNCTION app.chk_admin_central_usuario()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_cc INTEGER;
+BEGIN
+  -- Si es una operación de UPDATE y el ID_suc no ha cambiado, no hacemos las costosas consultas.
+  -- Para INSERT, 'OLD' es NULL, por lo que la condición siempre sería falsa, pero la verificación TG_OP='UPDATE' lo maneja.
+  IF TG_OP = 'UPDATE' AND NEW.id_suc IS NOT DISTINCT FROM OLD.id_suc THEN
+    RETURN NEW;
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM app.administrador WHERE DNI = NEW.DNI) THEN
+    
+    SELECT id_suc INTO v_cc
+    FROM app.sucursal
+    WHERE nombre = 'Casa Central'
+    LIMIT 1;
+
+    IF v_cc IS NULL THEN
+      RAISE EXCEPTION 'No se encontró la sucursal Casa Central';
+    END IF;
+
+    IF NEW.id_suc IS DISTINCT FROM v_cc THEN
+      RAISE EXCEPTION
+        'No se puede cambiar la sucursal del administrador % a ID_suc %. Un administrador solo puede pertenecer a Casa Central (ID_suc = %).',
+        NEW.DNI, NEW.id_suc, v_cc;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_chk_admin_central_usuario ON app.usuario;
+CREATE TRIGGER trg_chk_admin_central_usuario
+BEFORE INSERT OR UPDATE OF ID_suc ON app.usuario
+FOR EACH ROW
+EXECUTE FUNCTION app.chk_admin_central_usuario();

@@ -88,3 +88,4 @@ dni,nombre,fecha_nacimiento,mail,id_suc,activo,tipo,es_encargado
 37146170,Heliodoro Cecilio Bermejo Rocamora,1997-05-09,campoyflavio@example.net,7,True,proveedor,False
 82647125,Silvio Manu Cabrera Prada,1969-04-23,cchacon@example.net,7,True,proveedor,False
 83689574,Reina Lago Soria,1991-02-28,pmariscal@example.net,7,False,proveedor,False
+46445321,Ana Tissera, 1991-12-28,atissera@lol.com,8,True,administrador,False
