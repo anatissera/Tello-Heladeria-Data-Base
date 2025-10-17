@@ -2,9 +2,10 @@ import re
 import csv
 import unicodedata
 from pathlib import Path
-from typing import Optional, Dict, Set
+from typing import Optional, Dict, Set, Tuple
 import pandas as pd
 from difflib import get_close_matches
+from datetime import datetime
 
 MAESTRO = "data/catalog/productos.csv"                 
 CSV_PEDIDO = "data/raw/yerba4.csv"  
@@ -336,6 +337,64 @@ def parse_pedido_csv(
     df_out = df_out.sort_values(["categoria","familia","producto"]).reset_index(drop=True)
     return df_out
 
+# detección de fecha
+DATE_LINE_SCAN = 30
+_date_regex = re.compile(r"\b(\d{1,2}[\/\-\.\s]\d{1,2}[\/\-\.\s]\d{2,4})\b")
+
+def _normalize_date_ddmmyyyy(tok: str) -> Optional[str]:
+    """Convierte token a formato dd/mm/yyyy si se puede."""
+    tok = tok.strip().strip(",;: ")
+    formats = [
+        "%d/%m/%Y", "%d/%m/%y",
+        "%d-%m-%Y", "%d-%m-%y",
+        "%d.%m.%Y", "%d.%m.%y"
+    ]
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(tok, fmt)
+            return dt.strftime("%d/%m/%Y")
+        except Exception:
+            continue
+    return None
+
+def detect_date_in_file(path: str, lines_to_scan: int = DATE_LINE_SCAN) -> Optional[str]:
+    """
+    Devuelve una fecha encontrada en el CSV (formato dd/mm/yyyy).
+    Busca las primeras `lines_to_scan` líneas por cualquier token tipo fecha.
+    Si hay varias, prioriza las que estén en una línea con 'fecha'.
+    """
+    try:
+        with open(path, "rb") as f:
+            raw = f.read(20000)
+        try:
+            txt = raw.decode("utf-8")
+        except Exception:
+            txt = raw.decode("latin-1", errors="replace")
+    except Exception:
+        return None
+
+    lines = txt.splitlines()[:lines_to_scan]
+    candidates = []
+
+    for i, ln in enumerate(lines):
+        has_fecha = bool(re.search(r"\bfecha\b", ln, re.I))
+        for m in _date_regex.finditer(ln):
+            raw_token = m.group(1).strip()
+            norm = _normalize_date_ddmmyyyy(raw_token)
+            if norm:
+                candidates.append((norm, has_fecha))
+
+    if not candidates:
+        return None
+
+    # Si hay alguna línea con 'fecha', priorizá esa
+    for norm, has_fecha in candidates:
+        if has_fecha:
+            return norm
+
+    # Si no, devolvé la primera que encontró
+    return candidates[0][0]
+
 
 if __name__ == "__main__":
     if not Path(MAESTRO).exists():
@@ -343,7 +402,9 @@ if __name__ == "__main__":
     if not Path(CSV_PEDIDO).exists():
         raise FileNotFoundError(f"No se encontró {CSV_PEDIDO}")
     id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm = cargar_maestro(MAESTRO)
+    fecha = detect_date_in_file(CSV_PEDIDO)
     raw = read_dirty_csv(CSV_PEDIDO)
     clean = parse_pedido_csv(raw, id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm)
+    clean["fecha"] = fecha if fecha else ""
     clean.to_csv(OUTCSV, index=False, encoding="utf-8")
     print(f"OK -> {OUTCSV} ({len(clean)} filas)")
