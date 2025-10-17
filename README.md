@@ -158,7 +158,7 @@ Se insertan las entregas faltantes y se actualiza automáticamente el estado de 
 
 ---
 
-## ✅ Checklist de ejecución
+## Checklist de ejecución
 
 1. Configurar `.env` con `SUPABASE_DB_URL`.  
 2. Ejecutar `schema.sql` en Supabase.  
@@ -168,4 +168,4 @@ Se insertan las entregas faltantes y se actualiza automáticamente el estado de 
 
 ---
 
-👨‍💻 Proyecto realizado para **TP1 - I312 Bases de Datos (UdeSA, 2025)**.
+Proyecto realizado para **TP1 - I312 Bases de Datos (UdeSA, 2025)**.

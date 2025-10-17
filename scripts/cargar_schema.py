@@ -9,7 +9,7 @@ db_url = os.getenv("SUPABASE_DB_URL")
 with open(SQL_FILE, "r", encoding="utf-8") as f:
     schema_sql = f.read()
 
-conn = psycopg2.connect(db_url)
+conn = psycopg2.connect(db_url, sslmode='require')
 cur = conn.cursor()
 
 cur.execute(schema_sql)

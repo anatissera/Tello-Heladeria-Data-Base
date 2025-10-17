@@ -66,11 +66,13 @@ def parse_fecha(txt):
             pass
     return None
 
+
 def estado_por_num(n):
     if n is None: return "emitido"
-    if 1 <= n <= 3: return "entregado"
-    if n == 4:      return "preparado"
-    return "emitido"
+    if n == 1:      return "entregado"  # Pedido 1: Completo
+    if n == 2:      return "preparado"  # Pedido 2: En producción
+    return "emitido"                   # Pedidos 3, 4, 5, etc.: Pasan por la lógica de aprobación/cancelación
+
 
 def get_num_from_fname(name):
     m = re.search(r'(\d+)\.csv$', name.lower())
@@ -259,34 +261,61 @@ def main():
     proveedor = ensure_proveedor(env)
 
     total_ped, total_items, total_ent = 0, 0, 0
+    approved_count = 0 
+    pending_count = 0  #contador de pedidos que inician en estado base 'emitido'
 
-    for p in files:
+    for i, p in enumerate(files):
         in_path = Path(p)
         fname = in_path.name
         n = get_num_from_fname(fname)
-        estado = estado_por_num(n)
+        estado_base = estado_por_num(n)
         norm_path, suc_csv, first_fecha = normalize_csv(in_path)
 
         suc = infer_sucursal(env, fname, suc_csv)
         if not suc:
-            print(f"⚠️ {fname}: no pude resolver sucursal. Salto.")
+            print(f" {fname}: no pude resolver sucursal. Salto.")
             continue
 
         dni_emp, dni_adm = pick_emp_admin(env, suc["id_suc"])
         if not dni_emp or not dni_adm:
-            print(f"⚠️ {fname}: no hay empleado/admin elegible. Salto.")
+            print(f" {fname}: no hay empleado/admin elegible. Salto.")
             continue
+        dni_admin_a_usar = 'NULL'
+        estado_final = estado_base
+        
+        if estado_base != "emitido":
+            dni_admin_a_usar = f"'{dni_adm}'"
+        
+        elif estado_base == "emitido":
+            pending_count += 1
+            
+            if pending_count <= 2: 
+                estado_final = "aprobado" 
+                dni_admin_a_usar = f"'{dni_adm}'" 
+                approved_count += 1
+                
+            elif pending_count == 3: 
+                estado_final = "cancelado"
+                dni_admin_a_usar = f"'{dni_adm}'" 
+                
+            else:
+                estado_final = "emitido"
+                dni_admin_a_usar = 'NULL' 
+
 
         fecha_sql = first_fecha.strftime("%Y-%m-%d %H:%M:%S") if first_fecha else None
+        
+
+        
         sql_ins = f"""
         WITH ins AS (
           INSERT INTO app.pedido (id_suc, estado, fecha_emision, dni_empleado, dni_admin)
           VALUES (
             {suc['id_suc']},
-            '{estado}',
+            '{estado_final}',  
             {f"'{fecha_sql}'::timestamp" if fecha_sql else "NOW()"},
             '{dni_emp}',
-            '{dni_adm}'
+            {dni_admin_a_usar}  
           )
           RETURNING id_pedido
         )
@@ -344,7 +373,7 @@ def main():
         try: os.unlink(norm_path)
         except: pass
 
-        if estado == "entregado":
+        if estado_final == "entregado": 
             sql_ent = f"""
             INSERT INTO app.entrega(id_pedido, dni_proveedor, dni_empleado)
             VALUES ({id_pedido}, '{proveedor}', '{dni_emp}')
@@ -353,7 +382,7 @@ def main():
             psql_c(sql_ent, env)
             total_ent += 1
 
-        print(f"{fname}: pedido {id_pedido}  estado={estado}  suc='{suc['nombre']}'")
+        print(f"{fname}: pedido {id_pedido}  estado={estado_final}  suc='{suc['nombre']}'")
 
     print(f"\nResumen → pedidos: {total_ped}  ítems aprox: {total_items}  entregas: {total_ent}")
 

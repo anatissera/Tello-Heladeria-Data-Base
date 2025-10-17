@@ -69,6 +69,8 @@ dni,nombre,fecha_nacimiento,mail,id_suc,activo,tipo,es_encargado
 97663906,Oriana del Zamora,1980-06-25,rojasandres-felipe@example.net,7,True,empleado,False
 17551317,Jordana Cáceres Esteban,2006-09-25,krio@example.com,7,True,empleado,False
 61246420,David Briones-Morales,1961-07-05,teresitaherrero@example.com,7,True,empleado,False
+46445321,Ana Tissera,1991-12-28,atissera@lol.com,8,True,administrador,False
+45437166,Athina Salim,1991-12-21,asalim@lol.com,8,True,proveedor,False
 63153738,Ignacio Miró,1966-05-23,therrera@example.net,7,False,empleado,False
 61436036,Prudencia Sevilla Frías,1969-06-15,bastidaalfonso@example.net,7,False,empleado,False
 92787518,Jonatan Gregorio Palomino Pujol,1992-02-12,teodorosoto@example.org,8,True,empleado,True
@@ -88,4 +90,3 @@ dni,nombre,fecha_nacimiento,mail,id_suc,activo,tipo,es_encargado
 37146170,Heliodoro Cecilio Bermejo Rocamora,1997-05-09,campoyflavio@example.net,7,True,proveedor,False
 82647125,Silvio Manu Cabrera Prada,1969-04-23,cchacon@example.net,7,True,proveedor,False
 83689574,Reina Lago Soria,1991-02-28,pmariscal@example.net,7,False,proveedor,False
-46445321,Ana Tissera, 1991-12-28,atissera@lol.com,8,True,administrador,False
