@@ -33,7 +33,7 @@ TP1-Bases_de_Datos/
 │ │ ├── sept1.csv, ...
 │ │ ├── yerba1.csv, ...
 │ │
-│ ├── processed/ # salida normalizada lista para cargar
+│ ├── processed/ # salida procesados para cargar
 │ │ ├── pedidos_suc_catam1.csv
 │ │ ├── pedidos_suc_catam2.csv
 │ │ ├── pedidos_suc_monteagudo1.csv
@@ -41,7 +41,7 @@ TP1-Bases_de_Datos/
 │ │ ├── pedidos_suc_yerba1.csv
 │ │ └── ...
 │ │
-│ ├── fake/ # sets para simulación
+│ ├── fake/ # para simulación
 │ │ ├── administradores.csv
 │ │ ├── empleados.csv
 │ │ ├── provedores.csv
@@ -51,120 +51,175 @@ TP1-Bases_de_Datos/
 │ ├── familias.csv
 │ └── productos.csv
 │
-├── scripts/ # scripts de carga incremental
-│ ├── cargar_categorias.py
-│ ├── cargar_familias.py
-│ ├── cargar_productos.py
-│ ├── cargar_sucursales.py
-│ ├── cargar_usuarios.py
-│ ├── cargar_pedidos.py
-│ └── generar_usuarios.py
+├── scripts/ 
+│ ├── generate/ # scripts para generar datos de prueba
+│ │ └── generar_usuarios.py 
+│ │ 
+│ ├── load_to_db/ # scripts para cargar datos a la BD
+│ │ ├── cargar_categorias.py
+│ │ ├── cargar_familias.py
+│ │ ├── cargar_productos.py
+│ │ ├── cargar_sucursales.py
+│ │ ├── cargar_usuarios.py
+│ │ ├── cargar_pedidos.py
+│ │ └── generar_usuarios.py
 │
 ├── sql/ # SQL principal y auxiliares
 │ ├── schema.sql # esquema completo de la BD
 │ ├── sucursales.sql # datos iniciales de sucursales
-│ └── entregar_pedidos.sql # script para marcar pedidos como entregados
+│ └── entregar_pedidos.sql # script para entregar pedidos
 │
+├── manage_load.sh # script para ejecutar todo automáticamente
 ├── .env # contiene SUPABASE_DB_URL con la conexión
 ├── README.md # este archivo
-└── Trabajo Práctico Grupal.pdf
+└── Trabajo Práctico Grupal - Enunciado.pdf
 ```
 
 ---
 
-## Paso 1 - Crear esquema
+## Paso 1 - Preprocesar CSVs (en este caso, todos los raw están processed → saltear)
 
-Primero ejecutar en Supabase el script que crea las tablas, restricciones y triggers:
+El script `scripts/preprocess/procesar_csvs.py` convierte los archivos **raw** (originales de cada sucursal) en archivos **procesados** listos para cargar en la base.
+
+### Modo de uso
+
+```bash
+# Procesar TODOS los archivos en data/raw/
+python scripts/preprocess/procesar_csvs.py --mode all
+# o simplemente:
+python scripts/preprocess/procesar_csvs.py --mode 0
+```
+
+Esto genera automáticamente un archivo `pedidos_suc_<nombre>.csv` para cada archivo en `data/raw/`, y los guardará en `data/processed/`.
+
+---
+
+#### Procesar un solo archivo (modo single)
+
+Si querés procesar solo uno (por ejemplo `yerba1.csv`):
+
+```bash
+python scripts/preprocess/procesar_csvs.py --mode single --raw-path data/raw/yerba1.csv
+```
+
+Esto genera `data/processed/pedidos_suc_yerba1.csv`.
+
+También se puede especificar un nombre de salida personalizado:
+
+```bash
+python scripts/preprocess/procesar_csvs.py --mode single     --raw-path data/raw/yerba1.csv     --out-path data/processed/pedidos_suc_test.csv
+```
+
+Y si no pasás ningún argumento, el script pregunta interactivamente:
+
+```
+Seleccioná modo:
+  0 -> procesar TODOS los archivos
+  1 -> procesar UN archivo
+Ingrese 0 o 1:
+```
+
+---
+
+## Paso 2 - Crear esquema (opción manual)
+
+Si querés ejecutar el script que crea las tablas, restricciones y triggers manualmente:
 
 ```bash
 psql "$SUPABASE_DB_URL" -f sql/schema.sql
 ```
+> ⚠️ Abajo se muestra cómo hacerlo automáticamente con `manage_load.sh`.
 
 Esto genera todas las tablas (`usuario`, `sucursal`, `pedido`, `contiene`, `entrega`, etc.) siguiendo el modelo relacional diseñado.
 
 ---
 
-## Paso 2 - Preprocesar CSVs
+## Paso 3 - Cargar datos automáticamente con `manage_load.sh`
 
-Los archivos crudos están en `data/raw/`. Para normalizar encabezados, separar categoría/familia y homogeneizar sucursales:
+En lugar de ejecutar cada script de carga a mano, el repositorio incluye un script principal llamado `manage_load.sh` (ubicado en la raíz).
 
-```bash
-python scripts/preprocess/procesar_csvs.py
-```
-
-El resultado queda en `data/processed/` (un archivo por pedido, con nombre `pedidos_suc_<sucursal><n>.csv`), además de `productos.csv`, `categorias.csv` y `familias.csv`.
-
----
-
-## Paso 3 - Cargar datos (scripts)
-
-La carga de datos se hace en este **orden**, desde la carpeta `scripts/`. Cada script lee los CSV y hace inserts en las tablas correspondientes:
-
-1. **`cargar_categorias.py`** → carga `categorias.csv` en `app.categoria`  
-2. **`cargar_familias.py`** → carga `familias.csv` en `app.familia`  
-3. **`cargar_productos.py`** → carga `productos.csv` en `app.producto`, enlazando con categoría/familia  
-4. **`cargar_sucursales.py`** → crea sucursales desde `sql/sucursales.sql`  
-5. **`cargar_usuarios.py`** → genera usuarios base por sucursal:  
-   - empleados (marcando encargados activos),  
-   - administradores activos,  
-   - proveedores.  
-6. **`cargar_pedidos.py`** → recorre `data/processed/` y:  
-   - crea un `pedido` por archivo, con estado inicial `emitido`,  
-   - inserta sus ítems en `contiene`,  
-   - asigna automáticamente empleado encargado y administrador válidos para la sucursal,  
-   - valida integridad (empleado debe ser encargado activo de la misma sucursal, admin activo de esa sucursal),  
-   - asegura que existan previamente `producto` y `pedido` antes de insertar en `contiene`.  
-
-🔎 Notas importantes:  
-- Si un `pedido` cambia a estado `entregado`, debe existir en `entrega`.  
-- No puede crearse una `entrega` si el `pedido` está cancelado.  
-- Insertar una `entrega` actualiza automáticamente el estado del pedido a `entregado`.  
-
-Ejemplo de ejecución:
+### Modo de uso
 
 ```bash
-python scripts/cargar_categorias.py
-python scripts/cargar_familias.py
-python scripts/cargar_productos.py
-python scripts/cargar_sucursales.py
-python scripts/cargar_usuarios.py
-python scripts/cargar_pedidos.py
+# Solo crear el schema
+./manage_load.sh schema
+# o
+./manage_load.sh 0
+
+# Solo cargar los datos (asumiendo que el schema ya existe)
+./manage_load.sh data
+# o
+./manage_load.sh 1
+
+# Crear schema y luego cargar todos los datos (recomendado)
+./manage_load.sh all
+# o
+./manage_load.sh 2
 ```
 
----
+### Qué hace cada modo
 
-## Paso 4 - Marcar pedidos como entregados / preparados
+| Modo | Acción |
+|------|--------|
+| `0` o `schema` | Ejecuta `psql "$SUPABASE_DB_URL" -f sql/schema.sql` |
+| `1` o `data` | Ejecuta todos los scripts `cargar_*.py` en orden |
+| `2` o `all` | Ejecuta schema + todos los scripts de carga |
 
-Una vez cargados los pedidos, se puede usar el script SQL `entregar_pedidos.sql` para mover pedidos a otros estados (`entregado`, `preparado`, `emitido`, `cancelado`).  
-Ejemplo de configuración dentro del archivo:
+### Scripts que ejecuta en orden
+Cada script lee los CSV y hace inserts en las tablas correspondientes:
 
-```sql
-WITH params AS (
-  SELECT
-    ARRAY[2,3,4]::int[] AS delivered_ids,
-    ARRAY[5,10]::int[]  AS prepared_ids,
-    ARRAY[6]::int[]     AS emitted_ids,
-    ARRAY[]::int[]      AS canceled_ids
-)
-```
+1. **`cargar_categorias.py`** → carga `categorias.csv` en `app.categoria`
+2. **`cargar_familias.py`** → carga `familias.csv` en `app.familia`
+3. **`cargar_productos.py`** → carga `productos.csv` en `app.producto`, enlazando con categoría/familia
+4. **`cargar_sucursales.py`** → crea sucursales desde `sql/sucursales.sql`
+5. **`cargar_usuarios.py`** → genera usuarios base por sucursal:
+   - empleados (marcando encargados activos),
+   - administradores activos,
+   - proveedores.
+6. **`cargar_pedidos.py`** → crea los **pedidos** (`app.pedido`) y sus **ítems asociados** (`app.contiene`) a partir de los archivos procesados en `data/processed/`.
+   - este permite dos modos de ejecución:
+      | Modo | Descripción |
+      |------|--------------|
+      | **`random`** *(por defecto)* | Simula un flujo realista de pedidos con decisiones automáticas:<br>– Crea algunos pedidos en estado `emitido` (pendientes).<br>– Asigna aleatoriamente administradores activos para aprobar o cancelar pedidos (según la lógica de triggers del schema).<br>– Inserta entregas para algunos pedidos aprobados, lo que actualiza automáticamente su estado a `entregado`.<br>Este modo sirve para **probar el flujo completo**: emisión, aprobación, cancelación y entrega. |
+      | **`emit_all`** | Crea **todos los pedidos en estado `emitido`**, sin asignar administradores ni insertar entregas.<br>No dispara ninguna transición de estado: los pedidos quedan listos para ser aprobados o procesados más adelante desde la base de datos o la aplicación. |
 
-Al correrlo:
+      #### Uso
+
+      ```bash
+      # Modo por defecto (random / simulación)
+      python scripts/load_to_db/cargar_pedidos.py
+
+      # Modo explícito (simulado)
+      python scripts/load_to_db/cargar_pedidos.py --mode random
+
+      # Modo simple (solo emitir todos los pedidos)
+      python scripts/load_to_db/cargar_pedidos.py --mode emit_all
+      ```
+
+### Requisitos
+
+- `psql` accesible en el PATH (o ejecutarlo desde WSL / Git Bash en Windows).
+- `.env` con la variable `SUPABASE_DB_URL`, o exportarla manualmente:
+  ```bash
+  export SUPABASE_DB_URL="postgresql://usuario:pass@host:5432/db?sslmode=require"
+  ./manage_load.sh all
+  ```
+
+### Personalización
+
+Si querés usar un entorno Python específico (por ejemplo de Anaconda):
 
 ```bash
-psql "$SUPABASE_DB_URL" -f sql/entregar_pedidos.sql
+PYTHON=/ruta/a/python ./manage_load.sh all
 ```
-
-Se insertan las entregas faltantes y se actualiza automáticamente el estado de los pedidos seleccionados.
-
 ---
 
 ## Checklist de ejecución
 
 1. Configurar `.env` con `SUPABASE_DB_URL`.  
-2. Ejecutar `schema.sql` en Supabase.  
-3. Preprocesar CSVs con `procesar_csvs.py`.  
-4. Correr los scripts en orden (`cargar_*`).  
-5. Usar `entregar_pedidos.sql` para mover pedidos de estado y generar entregas.  
+2. (Opcional) Preprocesar CSVs con `python scripts/preprocess/procesar_csvs.py`.  
+3. Ejecutar `./manage_load.sh all` para crear el schema y cargar todos los datos.  
+4. (Opcional) Ejecutar `sql/entregar_pedidos.sql` para actualizar estados.
 
 ---
 

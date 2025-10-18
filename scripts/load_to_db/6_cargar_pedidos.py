@@ -3,8 +3,10 @@ import os, re, csv, glob, shutil, subprocess, tempfile, sys
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
+from datetime import datetime
+import argparse
 
-ROOT   = Path(__file__).resolve().parents[1]
+ROOT   = Path(__file__).resolve().parents[2]
 CSV_IN = ROOT / "data" / "processed"
 
 # Ruta a psql: se toma de la variable de entorno PSQL, del PATH, o se fija acá.
@@ -69,10 +71,9 @@ def parse_fecha(txt):
 
 def estado_por_num(n):
     if n is None: return "emitido"
-    if n == 1:      return "entregado"  # Pedido 1: Completo
-    if n == 2:      return "preparado"  # Pedido 2: En producción
-    return "emitido"                   # Pedidos 3, 4, 5, etc.: Pasan por la lógica de aprobación/cancelación
-
+    if n == 1:      return "entregado"  # Pedido 1
+    if n == 2:      return "preparado"  # Pedido 2
+    return "emitido"                    # Pedidos 3, 4, 5, etc.
 
 def get_num_from_fname(name):
     m = re.search(r'(\d+)\.csv$', name.lower())
@@ -170,6 +171,7 @@ def ensure_proveedor(env):
     psql_c(sql, env)
     return "30-00000000-0"
 
+
 def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
     """
     Devuelve: (ruta_csv_normalizado, sucursal_unica_si_apl, primera_fecha_valida)
@@ -198,6 +200,31 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
         suc_vals = set()
         first_valid_fecha = None
 
+        # --- Si existe columna fecha, tomar la PRIMERA celda no vacía y parsearla
+        if "fecha" in alias:
+            fi.seek(0)
+            r_scan = csv.DictReader(fi)
+            fecha_text = None
+            for row0 in r_scan:
+                val = (row0.get(alias["fecha"]) or "").strip()
+                if val:
+                    fecha_text = val
+                    break
+            if fecha_text:
+                try:
+                    # asumimos dd/mm/yyyy como dijiste
+                    first_valid_fecha = datetime.strptime(fecha_text, "%d/%m/%Y")
+                except Exception:
+                    # fallback corto por si viene en yy o ISO
+                    try:
+                        first_valid_fecha = datetime.strptime(fecha_text, "%d/%m/%y")
+                    except Exception:
+                        try:
+                            first_valid_fecha = datetime.strptime(fecha_text, "%Y-%m-%d")
+                        except Exception:
+                            first_valid_fecha = None
+            fi.seek(0)
+
         tmp = tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", newline="",
             prefix="norm_", suffix=".csv", delete=False
@@ -224,10 +251,14 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
                 if qty <= 0:
                     continue
 
-                ftxt = (row.get(alias["fecha"]) or "").strip() if "fecha" in alias else ""
-                dt = parse_fecha(ftxt)
-                if dt and not first_valid_fecha:
-                    first_valid_fecha = dt
+                # si ya tenemos first_valid_fecha (tomada de la columna entera), la usamos
+                if first_valid_fecha:
+                    dt = first_valid_fecha
+                else:
+                    ftxt = (row.get(alias["fecha"]) or "").strip() if "fecha" in alias else ""
+                    dt = parse_fecha(ftxt)
+                    if dt and not first_valid_fecha:
+                        first_valid_fecha = dt
 
                 w.writerow({
                     "producto": (row.get(alias.get("producto",""), "") or "").strip(),
@@ -241,6 +272,7 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
 
         suc_unique = list(suc_vals)[0] if len(suc_vals)==1 else None
         return tmp_path, suc_unique, first_valid_fecha
+    
 
 def main():
     load_dotenv(override=True)
@@ -252,6 +284,13 @@ def main():
     env["PGCONNECT_TIMEOUT"] = "10"
     env["PGOPTIONS"] = ""  
     env["SUPABASE_DB_URL"] = db_url  
+    
+    parser = argparse.ArgumentParser(description="Cargar pedidos (modo random o emit_all).")
+    parser.add_argument("--mode", choices=("random", "emit_all"), default="random",
+                        help="random: comportamiento de prueba (por defecto). emit_all: crear todos los pedidos en ESTADO=emitido.")
+    args = parser.parse_args()
+    mode = args.mode
+
 
     files = sorted(glob.glob(str(CSV_IN / "*.csv")))
     if not files:
@@ -283,29 +322,33 @@ def main():
         dni_admin_a_usar = 'NULL'
         estado_final = estado_base
         
-        if estado_base != "emitido":
-            dni_admin_a_usar = f"'{dni_adm}'"
-        
-        elif estado_base == "emitido":
-            pending_count += 1
+        if mode == "emit_all":
+            # modo simple: crear todos en 'emitido'
+            estado_final = "emitido"
+            dni_admin_a_usar = 'NULL'
+        else:
+            # random de prueba
+            if estado_base != "emitido":
+                dni_admin_a_usar = f"'{dni_adm}'"
             
-            if pending_count <= 2: 
-                estado_final = "aprobado" 
-                dni_admin_a_usar = f"'{dni_adm}'" 
-                approved_count += 1
+            elif estado_base == "emitido":
+                pending_count += 1
                 
-            elif pending_count == 3: 
-                estado_final = "cancelado"
-                dni_admin_a_usar = f"'{dni_adm}'" 
-                
-            else:
-                estado_final = "emitido"
-                dni_admin_a_usar = 'NULL' 
+                if pending_count <= 2: 
+                    estado_final = "aprobado" 
+                    dni_admin_a_usar = f"'{dni_adm}'" 
+                    approved_count += 1
+                    
+                elif pending_count == 3: 
+                    estado_final = "cancelado"
+                    dni_admin_a_usar = f"'{dni_adm}'" 
+                    
+                else:
+                    estado_final = "emitido"
+                    dni_admin_a_usar = 'NULL' 
 
 
         fecha_sql = first_fecha.strftime("%Y-%m-%d %H:%M:%S") if first_fecha else None
-        
-
         
         sql_ins = f"""
         WITH ins AS (

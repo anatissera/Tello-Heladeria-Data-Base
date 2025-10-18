@@ -6,10 +6,11 @@ from typing import Optional, Dict, Set, Tuple
 import pandas as pd
 from difflib import get_close_matches
 from datetime import datetime
+import traceback
 
-MAESTRO = "data/catalog/productos.csv"                 
-CSV_PEDIDO = "data/raw/yerba4.csv"  
-OUTCSV  = "data/processed/pedidos_suc_yerba4.csv"
+MAESTRO = Path("data/catalog/productos.csv")
+RAW_DIR = Path("data/raw")
+OUT_DIR = Path("data/processed")
 
 FUZZY_CUTOFF = 0.88
 
@@ -360,8 +361,6 @@ def _normalize_date_ddmmyyyy(tok: str) -> Optional[str]:
 def detect_date_in_file(path: str, lines_to_scan: int = DATE_LINE_SCAN) -> Optional[str]:
     """
     Devuelve una fecha encontrada en el CSV (formato dd/mm/yyyy).
-    Busca las primeras `lines_to_scan` líneas por cualquier token tipo fecha.
-    Si hay varias, prioriza las que estén en una línea con 'fecha'.
     """
     try:
         with open(path, "rb") as f:
@@ -387,24 +386,51 @@ def detect_date_in_file(path: str, lines_to_scan: int = DATE_LINE_SCAN) -> Optio
     if not candidates:
         return None
 
-    # Si hay alguna línea con 'fecha', priorizá esa
+    # si hay alguna línea con 'fecha', se prioriza esa
     for norm, has_fecha in candidates:
         if has_fecha:
             return norm
 
-    # Si no, devolvé la primera que encontró
     return candidates[0][0]
 
 
-if __name__ == "__main__":
-    if not Path(MAESTRO).exists():
+def procesar_todos():
+    if not MAESTRO.exists():
         raise FileNotFoundError(f"No se encontró {MAESTRO}")
-    if not Path(CSV_PEDIDO).exists():
-        raise FileNotFoundError(f"No se encontró {CSV_PEDIDO}")
-    id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm = cargar_maestro(MAESTRO)
-    fecha = detect_date_in_file(CSV_PEDIDO)
-    raw = read_dirty_csv(CSV_PEDIDO)
-    clean = parse_pedido_csv(raw, id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm)
-    clean["fecha"] = fecha if fecha else ""
-    clean.to_csv(OUTCSV, index=False, encoding="utf-8")
-    print(f"OK -> {OUTCSV} ({len(clean)} filas)")
+    if not RAW_DIR.exists():
+        raise FileNotFoundError(f"No se encontró carpeta raw: {RAW_DIR}")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm = cargar_maestro(str(MAESTRO))
+
+    raws = sorted([p for p in RAW_DIR.glob("*.csv") if p.is_file()])
+    if not raws:
+        print(f"No hay archivos RAW en {RAW_DIR}")
+        return
+
+    ok_count = 0
+    err_count = 0
+
+    for raw_path in raws:
+        try:
+            stem = raw_path.stem  # yerba4, catam1, etc.
+            out_path = OUT_DIR / f"pedidos_suc_{stem}.csv"
+            print(f"Procesando {raw_path} -> {out_path} ...", end=" ")
+
+            fecha = detect_date_in_file(str(raw_path))
+            raw_df = read_dirty_csv(str(raw_path))
+            clean = parse_pedido_csv(raw_df, id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm)
+            clean["fecha"] = fecha if fecha else ""
+            clean.to_csv(str(out_path), index=False, encoding="utf-8")
+
+            print(f"OK ({len(clean)} filas)")
+            ok_count += 1
+        except Exception as e:
+            err_count += 1
+            print(f"ERROR: {e}")
+            traceback.print_exc()
+
+    print(f"\nResumen: procesados={ok_count}  errores={err_count}")
+
+if __name__ == "__main__":
+    procesar_todos()
