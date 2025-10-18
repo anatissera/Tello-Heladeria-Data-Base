@@ -6,7 +6,7 @@ Este proyecto implementa el esquema de base de datos, carga inicial de datos y s
 
 ## Requisitos previos
 
-- **Supabase**: tener un proyecto creado (ej: https://supabase.com/dashboard/).
+- **Supabase**: proyecto creado.
 - **Python 3.11+** con las dependencias instaladas (ver `requirements.txt`).
 - **psql** (cliente de PostgreSQL) accesible en el PATH.
 - Archivo `.env` con la variable de conexión:
@@ -22,7 +22,7 @@ SUPABASE_DB_URL=postgresql://usuario:password@host:puerto/base?sslmode=require
 ```
 TP1-Bases_de_Datos/
 │
-├── scripts/preprocess/ # scripts de preprocesamiento de datos de pedidos crudos
+├── scripts/preprocess/ # scripts de preprocesamiento de datos de pedidos
 │ ├── chequeo_paso_csv.py
 │ └── procesar_csvs.py
 │
@@ -34,12 +34,10 @@ TP1-Bases_de_Datos/
 │ │ ├── yerba1.csv, ...
 │ │
 │ ├── processed/ # salida procesados para cargar
-│ │ ├── pedidos_suc_catam1.csv
-│ │ ├── pedidos_suc_catam2.csv
-│ │ ├── pedidos_suc_monteagudo1.csv
-│ │ ├── pedidos_suc_sept1.csv
-│ │ ├── pedidos_suc_yerba1.csv
-│ │ └── ...
+│ │ ├── pedidos_suc_catam1.csv, pedidos_suc_catam2.csv, ...
+│ │ ├── pedidos_suc_monteagudo1.csv, ...
+│ │ ├── pedidos_suc_sept1.csv, ...
+│ │ └── pedidos_suc_yerba1.csv, ...
 │ │
 │ ├── fake/ # para simulación
 │ │ ├── administradores.csv
@@ -56,22 +54,22 @@ TP1-Bases_de_Datos/
 │ │ └── generar_usuarios.py 
 │ │ 
 │ ├── load_to_db/ # scripts para cargar datos a la BD
-│ │ ├── cargar_categorias.py
-│ │ ├── cargar_familias.py
-│ │ ├── cargar_productos.py
-│ │ ├── cargar_sucursales.py
-│ │ ├── cargar_usuarios.py
-│ │ ├── cargar_pedidos.py
-│ │ └── generar_usuarios.py
+│ │ ├── 0_cargar_schema.py
+│ │ ├── 1_cargar_categorias.py
+│ │ ├── 2_cargar_familias.py
+│ │ ├── 3_cargar_productos.py
+│ │ ├── 4_cargar_sucursales.py
+│ │ ├── 5_cargar_usuarios.py
+│ │ └── 6_cargar_pedidos.py
 │
-├── sql/ # SQL principal y auxiliares
+├── sql/
 │ ├── schema.sql # esquema completo de la BD
-│ ├── sucursales.sql # datos iniciales de sucursales
-│ └── entregar_pedidos.sql # script para entregar pedidos
+│ └── sucursales.sql # datos iniciales de sucursales
 │
-├── manage_load.sh # script para ejecutar todo automáticamente
 ├── .env # contiene SUPABASE_DB_URL con la conexión
+├── manage_load.sh # script para ejecutar todo automáticamente
 ├── README.md # este archivo
+├── requirements.txt # dependencias
 └── Trabajo Práctico Grupal - Enunciado.pdf
 ```
 
@@ -121,20 +119,7 @@ Ingrese 0 o 1:
 
 ---
 
-## Paso 2 - Crear esquema (opción manual)
-
-Si querés ejecutar el script que crea las tablas, restricciones y triggers manualmente:
-
-```bash
-psql "$SUPABASE_DB_URL" -f sql/schema.sql
-```
-> ⚠️ Abajo se muestra cómo hacerlo automáticamente con `manage_load.sh`.
-
-Esto genera todas las tablas (`usuario`, `sucursal`, `pedido`, `contiene`, `entrega`, etc.) siguiendo el modelo relacional diseñado.
-
----
-
-## Paso 3 - Cargar datos automáticamente con `manage_load.sh`
+## Paso 2 - Crear esquema y cargar datos automáticamente con `manage_load.sh`
 
 En lugar de ejecutar cada script de carga a mano, el repositorio incluye un script principal llamado `manage_load.sh` (ubicado en la raíz).
 
@@ -161,22 +146,22 @@ En lugar de ejecutar cada script de carga a mano, el repositorio incluye un scri
 
 | Modo | Acción |
 |------|--------|
-| `0` o `schema` | Ejecuta `psql "$SUPABASE_DB_URL" -f sql/schema.sql` |
-| `1` o `data` | Ejecuta todos los scripts `cargar_*.py` en orden |
+| `0` o `schema` | Ejecuta `psql "$SUPABASE_DB_URL" -f sql/schema.sql`. Esto crea las tablas, restricciones y triggers |
+| `1` o `data` | Ejecuta todos los scripts `cargar_*.py` en orden. Para esto, el esquema ya tiene que estar creado |
 | `2` o `all` | Ejecuta schema + todos los scripts de carga |
 
 ### Scripts que ejecuta en orden
 Cada script lee los CSV y hace inserts en las tablas correspondientes:
 
-1. **`cargar_categorias.py`** → carga `categorias.csv` en `app.categoria`
-2. **`cargar_familias.py`** → carga `familias.csv` en `app.familia`
-3. **`cargar_productos.py`** → carga `productos.csv` en `app.producto`, enlazando con categoría/familia
-4. **`cargar_sucursales.py`** → crea sucursales desde `sql/sucursales.sql`
-5. **`cargar_usuarios.py`** → genera usuarios base por sucursal:
+1. **`1_cargar_categorias.py`** → carga `categorias.csv` en `app.categoria`
+2. **`2_cargar_familias.py`** → carga `familias.csv` en `app.familia`
+3. **`3_cargar_productos.py`** → carga `productos.csv` en `app.producto`, enlazando con categoría/familia
+4. **`4_cargar_sucursales.py`** → crea sucursales desde `sql/sucursales.sql`
+5. **`5_cargar_usuarios.py`** → genera usuarios base por sucursal:
    - empleados (marcando encargados activos),
    - administradores activos,
    - proveedores.
-6. **`cargar_pedidos.py`** → crea los **pedidos** (`app.pedido`) y sus **ítems asociados** (`app.contiene`) a partir de los archivos procesados en `data/processed/`.
+6. **`6_cargar_pedidos.py`** → crea los **pedidos** (`app.pedido`) y sus **ítems asociados** (`app.contiene`) a partir de los archivos procesados en `data/processed/`.
    - este permite dos modos de ejecución:
       | Modo | Descripción |
       |------|--------------|
@@ -196,14 +181,6 @@ Cada script lee los CSV y hace inserts en las tablas correspondientes:
       python scripts/load_to_db/cargar_pedidos.py --mode emit_all
       ```
 
-### Requisitos
-
-- `psql` accesible en el PATH (o ejecutarlo desde WSL / Git Bash en Windows).
-- `.env` con la variable `SUPABASE_DB_URL`, o exportarla manualmente:
-  ```bash
-  export SUPABASE_DB_URL="postgresql://usuario:pass@host:5432/db?sslmode=require"
-  ./manage_load.sh all
-  ```
 
 ### Personalización
 
@@ -219,7 +196,6 @@ PYTHON=/ruta/a/python ./manage_load.sh all
 1. Configurar `.env` con `SUPABASE_DB_URL`.  
 2. (Opcional) Preprocesar CSVs con `python scripts/preprocess/procesar_csvs.py`.  
 3. Ejecutar `./manage_load.sh all` para crear el schema y cargar todos los datos.  
-4. (Opcional) Ejecutar `sql/entregar_pedidos.sql` para actualizar estados.
 
 ---
 

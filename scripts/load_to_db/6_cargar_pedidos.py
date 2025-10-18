@@ -200,7 +200,6 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
         suc_vals = set()
         first_valid_fecha = None
 
-        # --- Si existe columna fecha, tomar la PRIMERA celda no vacía y parsearla
         if "fecha" in alias:
             fi.seek(0)
             r_scan = csv.DictReader(fi)
@@ -212,7 +211,7 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
                     break
             if fecha_text:
                 try:
-                    # asumimos dd/mm/yyyy como dijiste
+                    # asumimos dd/mm/yyyy porque salen así del preprocesamiento
                     first_valid_fecha = datetime.strptime(fecha_text, "%d/%m/%Y")
                 except Exception:
                     # fallback corto por si viene en yy o ISO
@@ -251,7 +250,7 @@ def normalize_csv(in_path: Path) -> tuple[Path, str|None, datetime|None]:
                 if qty <= 0:
                     continue
 
-                # si ya tenemos first_valid_fecha (tomada de la columna entera), la usamos
+                # si ya tenemos first_valid_fecha, la usamos
                 if first_valid_fecha:
                     dt = first_valid_fecha
                 else:
