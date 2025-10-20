@@ -7,6 +7,8 @@ import pandas as pd
 from difflib import get_close_matches
 from datetime import datetime
 import traceback
+import sys
+import argparse
 
 MAESTRO = Path("data/catalog/productos.csv")
 RAW_DIR = Path("data/raw")
@@ -431,6 +433,75 @@ def procesar_todos():
             traceback.print_exc()
 
     print(f"\nResumen: procesados={ok_count}  errores={err_count}")
+    
+    
+def procesar_single(raw_path: Path, out_path: Optional[Path] = None):
+    if not MAESTRO.exists():
+        raise FileNotFoundError(f"No se encontró {MAESTRO}")
+    if not raw_path.exists():
+        raise FileNotFoundError(f"No se encontró el archivo raw: {raw_path}")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm = cargar_maestro(str(MAESTRO))
+
+    stem = raw_path.stem
+    default_out = OUT_DIR / f"pedidos_suc_{stem}.csv"
+    if out_path is None:
+        out_path = default_out
+    else:
+        out_path = Path(out_path)
+
+    print(f"Procesando single: {raw_path} -> {out_path} ...", end=" ")
+    fecha = detect_date_in_file(str(raw_path))
+    raw_df = read_dirty_csv(str(raw_path))
+    clean = parse_pedido_csv(raw_df, id_by_norm, name_by_norm, fam_by_norm, cat_by_norm, universe_norm)
+    clean["fecha"] = fecha if fecha else ""
+    clean.to_csv(str(out_path), index=False, encoding="utf-8")
+    print(f"OK ({len(clean)} filas)")
+
+def _interactive_mode():
+    print("Seleccioná modo:")
+    print("  0 -> procesar TODOS los archivos en data/raw/")
+    print("  1 -> procesar UN archivo (especificar path)")
+    sel = input("Ingrese 0 o 1: ").strip()
+    if sel == "0":
+        return ("all", None, None)
+    if sel == "1":
+        raw = input("Path al archivo raw (ej: data/raw/yerba1.csv): ").strip()
+        out = input("Path de salida (opcional, dejar vacío para default en data/processed/): ").strip()
+        return ("single", raw if raw else None, out if out else None)
+    print("Opción inválida.")
+    sys.exit(2)
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Procesar CSVs RAW a CSVs procesados (pedidos_suc_...)")
+    parser.add_argument("--mode", choices=["all","single","0","1"], help="Modo: all|single (o 0|1). Si se omite, se pregunta interactivamente.")
+    parser.add_argument("--raw-path", help="(modo single) path al archivo raw a procesar")
+    parser.add_argument("--out-path", help="(modo single) path de salida opcional")
+    args = parser.parse_args(argv)
+
+    mode = args.mode
+    raw_path = args.raw_path
+    out_path = args.out_path
+
+    if mode is None:
+        mode, raw_path, out_path = _interactive_mode()
+    else:
+        if mode == "0":
+            mode = "all"
+        if mode == "1":
+            mode = "single"
+
+    if mode == "all":
+        procesar_todos()
+    elif mode == "single":
+        if not raw_path:
+            print("Modo 'single' requiere --raw-path o ingresar interactivo.")
+            sys.exit(2)
+        procesar_single(Path(raw_path), Path(out_path) if out_path else None)
+    else:
+        print("Modo desconocido.")
+        sys.exit(2)
 
 if __name__ == "__main__":
-    procesar_todos()
+    main()

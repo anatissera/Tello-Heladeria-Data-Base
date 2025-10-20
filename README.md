@@ -14,6 +14,7 @@ Este proyecto implementa el esquema de base de datos, carga inicial de datos y s
 ```bash
 SUPABASE_DB_URL=postgresql://usuario:password@host:puerto/base?sslmode=require
 ```
+   según lo indicado en el informe.
 
 ---
 

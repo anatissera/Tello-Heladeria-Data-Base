@@ -291,7 +291,6 @@ BEGIN
              RAISE EXCEPTION 'La cancelación de un pedido EMITIDO debe ser realizada y trazada por el Administrador.';
         END IF;
         
-
     END IF;
   
   END IF;
@@ -312,6 +311,9 @@ BEGIN
       RAISE EXCEPTION 'El pedido % no puede volver al estado EMITIDO.', NEW.id_pedido;
   END IF;
 
+  IF OLD.estado = 'entregado' AND NEW.estado IS DISTINCT FROM 'entregado' THEN
+    RAISE EXCEPTION 'El pedido % ya está ENTREGADO y su estado no puede modificarse.', NEW.id_pedido;
+  END IF;
   
   RETURN NEW;
 END;
