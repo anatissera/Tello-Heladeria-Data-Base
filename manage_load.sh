@@ -16,13 +16,17 @@ REPO_ROOT="${SCRIPT_DIR}"
 ENV_FILE="${REPO_ROOT}/.env"
 SCHEMA_SQL="${REPO_ROOT}/sql/schema.sql"
 
+# Modo de carga de pedidos: 'random' simula el flujo completo (emisión,
+# aprobación, cancelación y entrega), 'emit_all' deja todo en estado 'emitido'.
+PEDIDOS_MODE="${PEDIDOS_MODE:-emit_all}"
+
 DATA_SCRIPTS=(
-  "scripts/cargar_categorias.py"
-  "scripts/cargar_familias.py"
-  "scripts/cargar_productos.py"
-  "scripts/cargar_sucursales.py"
-  "scripts/cargar_usuarios.py"
-  "scripts/cargar_pedidos.py --mode emit_all" # Modo “random” por default
+  "scripts/load_to_db/1_cargar_categorias.py"
+  "scripts/load_to_db/2_cargar_familias.py"
+  "scripts/load_to_db/3_cargar_productos.py"
+  "scripts/load_to_db/4_cargar_sucursales.py"
+  "scripts/load_to_db/5_cargar_usuarios.py"
+  "scripts/load_to_db/6_cargar_pedidos.py"
 )
 
 PYTHON="${PYTHON:-python3}"
@@ -33,8 +37,12 @@ usage() {
 Usage: $0 <mode>
 Modes:
   0 | schema    -> solo correr schema (psql -f sql/schema.sql)
-  1 | data      -> solo correr scripts de carga (python scripts/...)
+  1 | data      -> solo correr scripts de carga (python scripts/load_to_db/...)
   2 | all       -> schema + data (en ese orden)
+
+Variables de entorno:
+  PYTHON        -> intérprete a usar (default: python3)
+  PEDIDOS_MODE  -> 'emit_all' (default) o 'random'
 EOF
   exit 1
 }
@@ -73,8 +81,7 @@ run_schema() {
 }
 
 run_data() {
-  # chequeos
-  check_cmd "$PYTHON" || check_cmd python
+  check_cmd "$PYTHON"
   if [[ -z "${SUPABASE_DB_URL:-}" ]]; then
     err "SUPABASE_DB_URL no está definido (en .env o en el entorno)."
     exit 4
@@ -90,9 +97,13 @@ run_data() {
 
   echo "Iniciando carga de datos con '$PYTHON'..."
   for script in "${DATA_SCRIPTS[@]}"; do
-    echo "-> Ejecutando: $PYTHON ${script}"
+    # cargar_pedidos acepta --mode; el resto no lleva argumentos
+    args=()
+    [[ "$script" == *"6_cargar_pedidos.py" ]] && args=(--mode "$PEDIDOS_MODE")
+
+    echo "-> Ejecutando: $PYTHON ${script} ${args[*]-}"
     # se ejecuta desde REPO_ROOT para que las rutas relativas dentro de los scripts funcionen
-    (cd "$REPO_ROOT" && "$PYTHON" "$script")
+    (cd "$REPO_ROOT" && "$PYTHON" "$script" ${args[@]+"${args[@]}"})
     echo "   OK: $script"
   done
   echo "Carga de datos finalizada."
@@ -107,7 +118,6 @@ case "$1" in
   0|schema) MODE="schema" ;;
   1|data)   MODE="data" ;;
   2|all)    MODE="all" ;;
-  schema|data|all) MODE="$1" ;;
   *) usage ;;
 esac
 
@@ -115,16 +125,9 @@ echo "Modo: $MODE"
 load_env
 
 case "$MODE" in
-  schema)
-    run_schema
-    ;;
-  data)
-    run_data
-    ;;
-  all)
-    run_schema
-    run_data
-    ;;
+  schema) run_schema ;;
+  data)   run_data ;;
+  all)    run_schema; run_data ;;
 esac
 
 echo "Hecho."

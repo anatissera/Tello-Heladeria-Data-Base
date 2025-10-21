@@ -1,2 +1,16 @@
+# Credenciales: nunca versionar
 .env
-/.venv
+.env.*
+!.env.example
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
